@@ -14,3 +14,12 @@ mkdir -p ./chunks
 ./verify_pipeline.sh
 
 ```
+
+
+**Esempi di percorso esplicito per chunk.sh**
+```sh
+./chunk.sh ./path
+./chunk.sh ./path/file.sh
+./chunk.sh "./path/*.sh"
+./chunk.sh "src/a.sh src/b.sh"
+```
