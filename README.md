@@ -15,7 +15,7 @@ mkdir -p ./chunks
 
 ```
 
-
+  
 **Esempi di percorso esplicito per chunk.sh**
 ```sh
 ./chunk.sh ./path
