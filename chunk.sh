@@ -11,32 +11,42 @@ set -euo pipefail
 SRC="${1:?devi passare SRC}"
 OUTDIR="./chunks"
 TMPDIR="./tmp"
+WORKDIR="./ui_work"
+CHUNK_LINES=250
 
-mkdir -p "$TMPDIR" "$OUTDIR" ./ui_work
+mkdir -p "$TMPDIR" "$OUTDIR" "$WORKDIR"
 chmod 700 "$TMPDIR"
 
-# Normalizza input: file singolo, directory, glob, lista
+# resolve_sources: emette percorsi null-separated
 resolve_sources() {
-    if [ -f "$SRC" ]; then
-        printf '%s\n' "$SRC"
-        return
-    fi
+  # singolo file
+  if [ -f "$SRC" ]; then
+    printf '%s\0' "$SRC"
+    return
+  fi
 
-    if [ -d "$SRC" ]; then
-        find "$SRC" -maxdepth 1 -type f
-        return
-    fi
+  # directory (non ricorsiva)
+  if [ -d "$SRC" ]; then
+    find "$SRC" -maxdepth 1 -type f -print0
+    return
+  fi
 
-    for item in $SRC; do
-        for f in $item; do
-            [ -f "$f" ] && printf '%s\n' "$f"
-        done
+  # lista o glob: iteriamo sugli elementi passati (split su whitespace)
+  for item in $SRC; do
+    # l'iterazione su $item espande i glob (es. "./src/*.sh")
+    for f in $item; do
+      [ -f "$f" ] && printf '%s\0' "$f"
     done
+  done
 }
 
-for f in $(resolve_sources); do
-    base=$(basename "$f")
-    sed -e 's/\r$//' -e 's/[[:space:]]\+$//' "$f" > "./ui_work/$base"
-    split -l 250 --numeric-suffixes=1 --additional-suffix=.chunk \
-        "./ui_work/$base" "$OUTDIR/$base."
-done
+# processa ogni file (legge input null-separated)
+while IFS= read -r -d '' f; do
+  [ -f "$f" ] || continue
+  base=$(basename "$f")
+  # normalizza CRLF e trailing spaces
+  sed -e 's/\r$//' -e 's/[[:space:]]\+$//' "$f" > "$WORKDIR/$base"
+  # split in chunk di CHUNK_LINES righe
+  split -l "$CHUNK_LINES" --numeric-suffixes=1 --additional-suffix=.chunk \
+        "$WORKDIR/$base" "$OUTDIR/$base."
+done < <(resolve_sources)
