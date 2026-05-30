@@ -8,28 +8,25 @@
 # ./chunk.sh "src/**/*.sh"
 set -euo pipefail
 
-SRC="${1:-my_path}"     # default: my_path
+SRC="${1:?devi passare SRC}"
 OUTDIR="./chunks"
 TMPDIR="./tmp"
 
-mkdir -p "$TMPDIR" "$OUTDIR" ui_work
+mkdir -p "$TMPDIR" "$OUTDIR" ./ui_work
 chmod 700 "$TMPDIR"
 
-# Normalizza: file singolo, directory, glob, lista
+# Normalizza input: file singolo, directory, glob, lista
 resolve_sources() {
-    # Se è un file singolo
     if [ -f "$SRC" ]; then
         printf '%s\n' "$SRC"
         return
     fi
 
-    # Se è una directory
     if [ -d "$SRC" ]; then
         find "$SRC" -maxdepth 1 -type f
         return
     fi
 
-    # Se è una lista di percorsi
     for item in $SRC; do
         for f in $item; do
             [ -f "$f" ] && printf '%s\n' "$f"
@@ -39,7 +36,7 @@ resolve_sources() {
 
 for f in $(resolve_sources); do
     base=$(basename "$f")
-    sed -e 's/\r$//' -e 's/[[:space:]]\+$//' "$f" > "ui_work/$base"
+    sed -e 's/\r$//' -e 's/[[:space:]]\+$//' "$f" > "./ui_work/$base"
     split -l 250 --numeric-suffixes=1 --additional-suffix=.chunk \
-        "ui_work/$base" "$OUTDIR/$base."
+        "./ui_work/$base" "$OUTDIR/$base."
 done
