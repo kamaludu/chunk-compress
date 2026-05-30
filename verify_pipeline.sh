@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# 4 - Script di verifica automatica
 set -euo pipefail
 TMPDIR=./tmp
 [ -d "$TMPDIR" ] || { echo "Create tmp/: mkdir -p tmp && chmod 700 tmp"; exit 1; }
