@@ -4,7 +4,7 @@ Chunking, dizionario, deduplica, estrazione feature.
 
 **Clone locale:**
 ```sh
-git clone --depth 1 --branch main https://github.com/kamaludu/chunk-compress.git repo-groqbash
+git clone --depth 1 --branch main https://github.com/kamaludu/chunk-compress.git chunk-compress
 ```
 
 ---
