@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Script 3 — compressione chunk → JSONL
 import json,glob,re,hashlib,os,sys
 os.makedirs('out',exist_ok=True)
 D=json.load(open('dict/global.json'))['d'] if os.path.exists('dict/global.json') else {}
