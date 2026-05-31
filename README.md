@@ -1,7 +1,9 @@
 # README — Uso minimo del compressore locale LLM‑ready
 
 **Clone locale:**
-`git clone --depth 1 --branch main https://github.com/kamaludu/chunk-compress.git chunk-compress`
+```sh
+git clone --depth 1 --branch main https://github.com/kamaludu/chunk-compress.git chunk-compress
+```
 
 ## 1. Struttura del progetto
 Metti questi file nella stessa directory:
