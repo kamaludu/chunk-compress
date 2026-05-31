@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
 # Script 1 — chunking + normalizzazione
-# Examples:
-# ./chunk.sh my_path/
-# ./chunk.sh ./my_path/my_file.sh
-# ./chunk.sh "./my_path/*.sh"
-# ./chunk.sh "src/a.sh src/b.sh"
-# ./chunk.sh "src/**/*.sh"
 set -euo pipefail
 
-SRC="${1:?devi passare SRC}"
+# Uso:
+# ./chunk.sh /percorso/alla/sorgente
+# ./chunk.sh "./src/*.sh"
+# SRC viene richiesto una sola volta qui e salvato in .pipeline_src
+
+SRC="${1:?Usage: $0 SRC}"
 OUTDIR="./chunks"
 TMPDIR="./tmp"
 WORKDIR="./ui_work"
 CHUNK_LINES=250
+PIPEFILE=".pipeline_src"
 
 mkdir -p "$TMPDIR" "$OUTDIR" "$WORKDIR"
 chmod 700 "$TMPDIR"
 
+# salva SRC per gli altri script (un solo punto di configurazione)
+printf '%s' "$SRC" > "$PIPEFILE"
+
 # resolve_sources: emette percorsi null-separated
 resolve_sources() {
-  # singolo file
   if [ -f "$SRC" ]; then
     printf '%s\0' "$SRC"
     return
   fi
 
-  # directory (non ricorsiva)
   if [ -d "$SRC" ]; then
     find "$SRC" -maxdepth 1 -type f -print0
     return
@@ -33,7 +34,6 @@ resolve_sources() {
 
   # lista o glob: iteriamo sugli elementi passati (split su whitespace)
   for item in $SRC; do
-    # l'iterazione su $item espande i glob (es. "./src/*.sh")
     for f in $item; do
       [ -f "$f" ] && printf '%s\0' "$f"
     done
@@ -50,3 +50,5 @@ while IFS= read -r -d '' f; do
   split -l "$CHUNK_LINES" --numeric-suffixes=1 --additional-suffix=.chunk \
         "$WORKDIR/$base" "$OUTDIR/$base."
 done < <(resolve_sources)
+
+echo "Wrote chunks to $OUTDIR; SRC saved in $PIPEFILE"
