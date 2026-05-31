@@ -33,7 +33,6 @@ import io_utils
 # Scansione e caricamento
 # -------------------------
 def scan_files(input_path: str) -> List[Dict[str, Any]]:
-def scan_files(input_path: str) -> List[Dict[str, Any]]:
     p = Path(input_path)
     files: List[Path] = []
     if p.is_dir():
