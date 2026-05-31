@@ -132,7 +132,7 @@ Stampato a terminale:
 
 ```sh
 python3 cli.py \
-  --input ./project \
+  --input ../groqbash/groqbash \
   --output ./out \
   --L_min 24 \
   --N_min 2 \
@@ -140,8 +140,8 @@ python3 cli.py \
   --B_max_lines 10 \
   --min_total_saving 20 \
   --placeholder-sub "<<s{:03d}>>" \
-  --placeholder-blk "<<b{:03d}>>"
-  --export-mapping-for file1.xx,file2.xx
+  --placeholder-blk "<<b{:03d}>>" \
+  --export-mapping-for groqbash
 ```
 
 ---
