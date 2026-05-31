@@ -124,6 +124,7 @@ Stampato a terminale:
 | **--placeholder-sub** | stringa formato | Formato per i placeholder delle substring; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-sub "<<s{:03d}>>"` |
 | **--placeholder-blk** | stringa formato | Formato per i placeholder dei block; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-blk "<<b{:03d}>>"` |
 | **--export-mapping-for** | stringa (lista) | Lista separata da virgole di nomi file (relativi a `--output`) per cui esportare `mapping_subset.json`. | nomi o percorsi relativi | `--export-mapping-for INSTALL.md,header.html` |
+| **--export-manifest** | flag | Genera `manifest.json` compatto e LLM‑friendly in OUT_DIR (contiene `paths`, `files` con `i`/`sha`/`ph`, `ph` metadati `sha`/`len`, `v`); usa path relativi e evita path assoluti e file filtrati. | flag booleano | `--export-manifest` |
 | **--verify-roundtrip** | flag | Esegue il controllo di roundtrip e fallisce se la ricostruzione non corrisponde. | flag booleano | `--verify-roundtrip` |
 
 ---
