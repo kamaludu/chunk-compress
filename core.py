@@ -19,7 +19,6 @@ from typing import Dict, List, Tuple, Any
 
 import io_utils
 
-
 # -------------------------
 # Types (solo documentativi)
 # -------------------------
@@ -34,14 +33,18 @@ import io_utils
 # Scansione e caricamento
 # -------------------------
 def scan_files(input_path: str) -> List[Dict[str, Any]]:
+def scan_files(input_path: str) -> List[Dict[str, Any]]:
     p = Path(input_path)
     files: List[Path] = []
     if p.is_dir():
         for f in sorted(p.rglob("*")):
             if f.is_file():
                 files.append(f)
+    elif p.is_file():
+        # input è un singolo file: processalo direttamente
+        files.append(p)
     else:
-        # file-lista
+        # file-lista: ogni riga è un percorso a file
         with p.open("r", encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
@@ -67,7 +70,6 @@ def scan_files(input_path: str) -> List[Dict[str, Any]]:
     if not metas:
         raise RuntimeError("No valid files found in input")
     return metas
-
 
 def load_contents(file_metas: List[Dict[str, Any]]) -> Dict[str, str]:
     contents: Dict[str, str] = {}
