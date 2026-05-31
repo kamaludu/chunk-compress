@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # Eseguito da: build_dict.sh
+# genera dict/global.json in modo atomico
 import json, glob, os, sys, tempfile, shutil
 
-# Accetta SRC per coerenza pipeline (opzionale, non usato internamente)
+# Accetta SRC per coerenza (opzionale)
 SRC = os.environ.get("SRC") or (sys.argv[1] if len(sys.argv) > 1 else None)
 
 os.makedirs('dict', exist_ok=True)
