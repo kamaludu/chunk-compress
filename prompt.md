@@ -9,7 +9,7 @@ Sono scritti per essere **copiati e incollati** senza modifiche.
 
 ---
 
-# 1) **Inizia sessione**
+## 1) **Inizia sessione**
 Usalo come primo messaggio della chat.
 
 > **PROMPT — Inizio sessione**  
@@ -24,7 +24,7 @@ Usalo come primo messaggio della chat.
 
 ---
 
-# 2) **Incolla mapping_subset.json**
+## 2) **Incolla mapping_subset.json**
 Dopo la conferma di Copilot, incolla il mapping.
 
 > **PROMPT — Incolla mapping**  
@@ -36,7 +36,7 @@ Dopo la conferma di Copilot, incolla il mapping.
 
 ---
 
-# 3) **Incolla file compressi**
+## 3) **Incolla file compressi**
 Dopo che Copilot conferma di aver caricato il mapping.
 
 > **PROMPT — Incolla file compressi**  
@@ -47,7 +47,7 @@ Dopo che Copilot conferma di aver caricato il mapping.
 
 ---
 
-# 4) **Chiedi ricostruzione**
+## 4) **Chiedi ricostruzione**
 Quando mapping + file compressi sono caricati.
 
 > **PROMPT — Ricostruzione**  
@@ -63,7 +63,7 @@ Quando mapping + file compressi sono caricati.
 
 ---
 
-# 5) **Chiedi analisi o modifiche**
+## 5) **Chiedi analisi o modifiche**
 Dopo che Copilot ha ricostruito correttamente.
 
 > **PROMPT — Analisi o modifiche**  
@@ -80,7 +80,7 @@ Dopo che Copilot ha ricostruito correttamente.
 
 ---
 
-# 🎯 Sequenza finale consigliata (ultra‑efficiente)
+## 🎯 Sequenza finale consigliata (ultra‑efficiente)
 1. Inizia sessione  
 2. Incolla mapping  
 3. Incolla file compressi  
