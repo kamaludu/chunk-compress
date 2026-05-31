@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Script 4 - Verifica automatica (richiede SRC come argomento)
+# legge .pipeline_src, verifica e roundtrip
 set -euo pipefail
 
-SRC="${1:?devi passare SRC}"
+PIPEFILE=".pipeline_src"
 TMPDIR="./tmp"
 CHUNKDIR="./chunks"
 OUTDIR="./out"
 DICTFILE="./dict/global.json"
+
+[ -f "$PIPEFILE" ] || { echo "Run chunk.sh first to create $PIPEFILE"; exit 1; }
+SRC="$(cat "$PIPEFILE")"
 
 [ -d "$TMPDIR" ] || { echo "Create tmp/: mkdir -p $TMPDIR && chmod 700 $TMPDIR"; exit 1; }
 [ -d "$CHUNKDIR" ] || { echo "Missing chunks/ directory"; exit 1; }
@@ -14,7 +18,6 @@ DICTFILE="./dict/global.json"
 
 echo "SRC: $SRC"
 
-# conteggi robusti
 chunk_count=$(find "$CHUNKDIR" -maxdepth 1 -type f | wc -l)
 pack_records=0
 [ -f "$OUTDIR/pack.jsonl" ] && pack_records=$(wc -l < "$OUTDIR/pack.jsonl")
@@ -22,7 +25,6 @@ pack_records=0
 echo "chunks: $chunk_count"
 echo "pack records: $pack_records"
 
-# dict entries
 dict_entries=0
 if [ -f "$DICTFILE" ]; then
   dict_entries=$(python3 - <<PY
@@ -38,7 +40,6 @@ PY
 fi
 echo "dict entries: $dict_entries"
 
-# sizes (du) con controllo zero
 orig=0
 pack=0
 if [ -e "$SRC" ]; then
@@ -57,10 +58,8 @@ else:
 print("ratio_pct:", ratio)
 PY
 
-# Roundtrip test (prime 3 bodies) - ricostruzione usando mapping short->orig
 echo "Roundtrip test (first 3 bodies)"
 if [ -f "$OUTDIR/pack.jsonl" ]; then
-  # elenco primi 3 file body.*.tok in modo robusto
   mapfile -t bodies < <(find "$OUTDIR" -maxdepth 1 -type f -name 'body.*.tok' -print0 | xargs -0 -n1 | sort | head -n3)
   for f in "${bodies[@]}"; do
     h=$(basename "$f" | sed 's/body\.//;s/\.tok//')
@@ -76,10 +75,8 @@ if os.path.exists(dfile):
         D=json.load(open(dfile)).get('d',{})
     except Exception:
         D={}
-# invert mapping: short -> orig
 inv = {v:k for k,v in D.items()}
 b = open(bfile,'r',encoding='utf-8').read()
-# replace short tokens with originals (longest-first to avoid partial collisions)
 for short in sorted(inv.keys(), key=len, reverse=True):
     b = b.replace(short, inv[short])
 print('---', '${h}', 'len', len(b))
@@ -89,7 +86,6 @@ else
   echo "No pack.jsonl found; skipping roundtrip."
 fi
 
-# Missing function symbols (sample)
 echo "Missing function symbols (sample)"
 find "$CHUNKDIR" -type f -print0 2>/dev/null | xargs -0 grep -Eo '([a-zA-Z_][a-zA-Z0-9_]*\(\))' 2>/dev/null \
   | sed 's/()//' | sort -u > "$TMPDIR/chunk_fns.txt" || true
@@ -107,11 +103,10 @@ print(len(miss))
 print('\\n'.join(miss[:10]))
 PY
 
-# Side-effect tags
 echo "Side-effect tags:"
 if [ -f "$OUTDIR/pack.jsonl" ]; then
   python3 - <<PY
-import json,sys
+import json
 from collections import Counter
 c=Counter()
 for l in open('out/pack.jsonl','r',encoding='utf-8'):
