@@ -6,6 +6,10 @@ Orchestratore della pipeline:
 - validazione input
 - chiamate a core.py
 - stampa report
+
+- export mapping_subset.json in formato LLM-ready (solo placeholder -> {content, sha256, length})
+- quando si costruisce la lista di file per l'export non si usa .resolve() (evita path assoluti)
+- comportamento LLM-ready di default per mapping_subset.json quando si usa --export-mapping-for
 """
 
 import argparse
@@ -18,7 +22,7 @@ import io_utils
 
 def parse_args():
     p = argparse.ArgumentParser(description="Local reversible compressor (LLM-ready)")
-    p.add_argument("--input", "-i", required=True, help="Directory o file-lista")
+    p.add_argument("--input", "-i", required=True, help="Directory o file‑lista")
     p.add_argument("--output", "-o", default="compressed_output", help="Directory output")
     p.add_argument("--L_min", type=int, default=64)
     p.add_argument("--N_min", type=int, default=2)
@@ -27,7 +31,7 @@ def parse_args():
     p.add_argument("--verify-roundtrip", action="store_true")
     p.add_argument(
         "--export-mapping-for",
-        help="Comma-separated list of output filenames (relative to OUTPUT dir) for which to export a reduced mapping (writes mapping_subset.json in output dir)",
+        help="Comma-separated list di nomi file (relativi a OUTPUT) per cui esportare il mapping ridotto (scrive mapping_subset.json in output dir)",
         default="",
     )
     p.add_argument(
@@ -87,36 +91,58 @@ def main():
         # 5) apply
         llm_ready, reverse_map = core.apply_placeholders(contents, replacements)
 
-        # 6) write outputs
+        # 6) write outputs (transformed files + reverse_map completo)
         _write_outputs(llm_ready, reverse_map, output_dir, input_path)
 
-        # 6b) optional: export reduced mapping for selected files
+        # 6b) export reduced mapping per file (LLM-ready) -- comportamento di default quando richiesto
         if getattr(args, "export_mapping_for", ""):
             files = [s.strip() for s in args.export_mapping_for.split(",") if s.strip()]
             if files:
-                abs_files = []
-
+                # costruiamo una lista di riferimenti ai file senza risolvere a path assoluti
+                # includiamo sia il percorso relativo rispetto a output_dir sia rispetto a input_path
+                ref_files = []
                 for f in files:
-                    # path del file compresso in out/
                     try:
-                        abs_files.append(str((output_dir / f).resolve()))
+                        # riferimento relativo in output (come apparirà nei file compressi)
+                        ref_files.append(str(Path(f).as_posix()))
                     except Exception:
                         pass
-
-                    # path del file sorgente originale (se input è directory)
                     try:
-                        abs_files.append(str((input_path / f).resolve()))
+                        # riferimento relativo rispetto all'input root (se il file esiste lì)
+                        ref_files.append(str((Path(f)).as_posix()))
                     except Exception:
                         pass
 
                 # deduplica mantenendo ordine
-                abs_files = list(dict.fromkeys(abs_files))
+                ref_files = list(dict.fromkeys(ref_files))
 
-                subset = core.extract_mapping_for_files(reverse_map, abs_files)
+                # chiediamo a core di estrarre il subset; ci aspettiamo un dict placeholder -> entry
+                subset = core.extract_mapping_for_files(reverse_map, ref_files)
+
+                # costruiamo la versione LLM-ready: solo placeholder -> {content, sha256, length}
+                llm_subset = {"placeholders": {}}
+                for ph, entry in (subset or {}).items():
+                    # entry potrebbe essere una struttura complessa; estraiamo i campi utili
+                    content = entry.get("content") if isinstance(entry, dict) else None
+                    if content is None:
+                        # se entry è una lista di occorrenze, recuperiamo il contenuto dal reverse_map principale
+                        rm_entry = reverse_map.get(ph)
+                        if isinstance(rm_entry, dict):
+                            content = rm_entry.get("content")
+                    if content is None:
+                        # skip se non troviamo contenuto
+                        continue
+                    sha = entry.get("sha256") if isinstance(entry, dict) else reverse_map.get(ph, {}).get("sha256", "")
+                    length = entry.get("length") if isinstance(entry, dict) else len(content)
+                    llm_subset["placeholders"][ph] = {
+                        "content": content,
+                        "sha256": sha or "",
+                        "length": length or len(content),
+                    }
 
                 io_utils.write_atomic(
                     output_dir / "mapping_subset.json",
-                    json.dumps(subset, ensure_ascii=False, indent=2),
+                    json.dumps(llm_subset, ensure_ascii=False, indent=2),
                 )
 
                 print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
@@ -149,13 +175,15 @@ def _write_outputs(llm_ready, reverse_map, output_dir: Path, input_root: Path):
         abs_p = Path(abs_path)
         try:
             rel = abs_p.relative_to(input_root)
-        except ValueError:
-            rel = abs_p.name
+        except Exception:
+            # se non è sotto input_root, usiamo il nome file o il percorso relativo fornito
+            rel = Path(abs_p.name)
 
         out_path = output_dir / rel
         io_utils.ensure_dir(out_path.parent)
         io_utils.write_atomic(out_path, text)
 
+    # scriviamo la reverse_map completa (solo locale, utile per ricostruzione e debug)
     io_utils.write_atomic(
         output_dir / "reverse_map.json",
         json.dumps(reverse_map, ensure_ascii=False, indent=2),
