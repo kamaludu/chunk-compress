@@ -150,3 +150,43 @@ python3 cli.py \
 ### Nota rapida
 - **Obiettivo**: abbassare `L_min` e `min_total_saving` e usare placeholder più corti per rendere i singoli file `out/...` molto piccoli; la **reverse_map.json** crescerà.  
 - **Estrazione automatica**: usa `--export-mapping-for` per ottenere `out/mapping_subset.json` contenente solo i placeholder rilevanti per i file selezionati.
+
+---
+
+## Comandi per generare il manifest
+
+Di seguito i comandi esatti da eseguire con la `cli.py` aggiornata. Sostituisci `INPUT_DIR` e `OUT_DIR` con i percorsi reali.
+
+- **Genera solo il manifest** (scansione + manifest compatto):
+```sh
+python3 cli.py --input INPUT_DIR --output OUT_DIR --export-manifest
+```
+
+- **Esegui tutta la pipeline e genera anche il manifest** (scan, compressione, reverse_map, mapping_subset opzionale, manifest):
+```sh
+python3 cli.py --input INPUT_DIR --output OUT_DIR --export-manifest
+```
+
+- **Genera mapping_subset.json per file specifici e il manifest insieme**:
+```sh
+python3 cli.py --input INPUT_DIR --output OUT_DIR --export-mapping-for file1.txt,file2.md --export-manifest
+```
+
+- **Esempio reale per la tua cartella groqbash**:
+```sh
+python3 cli.py -i ../groqbash/groqbash -o ./out --export-manifest
+```
+
+---
+
+### Dove trovare il manifest e cosa contiene
+- **Percorso**: `OUT_DIR/manifest.json`  
+- **Formato**: compatto e LLM‑friendly con chiavi `paths`, `files`, `ph`, `v` (come definito).
+
+---
+
+### Note operative rapide
+- **Input può essere** una directory o un file‑lista (come già supportato da `scan_files`).  
+- Se vuoi **escludere pattern** (es. `.lock`) modifica `core.scan_files()` o filtra `file_metas` prima di chiamare `core.build_manifest`.  
+- Usa `--export-manifest` ogni volta che vuoi un manifest stabile e deterministico; il comando è idempotente.
+
