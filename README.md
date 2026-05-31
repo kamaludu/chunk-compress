@@ -141,6 +141,7 @@ python3 cli.py \
   --min_total_saving 20 \
   --placeholder-sub "<<s{:03d}>>" \
   --placeholder-blk "<<b{:03d}>>"
+  --export-mapping-for file1.xx,file2.xx
 ```
 
 ---
