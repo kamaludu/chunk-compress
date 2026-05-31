@@ -15,6 +15,7 @@ from pathlib import Path
 import core
 import io_utils
 
+
 def parse_args():
     p = argparse.ArgumentParser(description="Local reversible compressor (LLM-ready)")
     p.add_argument("--input", "-i", required=True, help="Directory o file-lista")
@@ -30,6 +31,7 @@ def parse_args():
         default="",
     )
     return p.parse_args()
+
 
 def main():
     args = parse_args()
@@ -71,30 +73,33 @@ def main():
         if getattr(args, "export_mapping_for", ""):
             files = [s.strip() for s in args.export_mapping_for.split(",") if s.strip()]
             if files:
-                # costruisci lista di path assoluti da confrontare:
-                # - output_dir / f (file scritto in out/)
-                # - input_path / f  (file sorgente originale, se input_path è directory)
-                from pathlib import Path
                 abs_files = []
+
                 for f in files:
+                    # path del file compresso in out/
                     try:
-                        abs_files.append(str((Path(output_dir) / f).resolve()))
+                        abs_files.append(str((output_dir / f).resolve()))
                     except Exception:
                         pass
-                    # se l'input era una directory, aggiungiamo anche il possibile path sorgente
+
+                    # path del file sorgente originale (se input è directory)
                     try:
-                        abs_files.append(str((Path(args.input) / f).resolve()))
+                        abs_files.append(str((input_path / f).resolve()))
                     except Exception:
                         pass
-                # rimuoviamo duplicati
+
+                # deduplica mantenendo ordine
                 abs_files = list(dict.fromkeys(abs_files))
-                # estrai subset usando la funzione in core.py
+
                 subset = core.extract_mapping_for_files(reverse_map, abs_files)
-                # scrivi mapping_subset.json in output_dir in modo atomico
-                io_utils.write_atomic(output_dir / "mapping_subset.json",
-                                      json.dumps(subset, ensure_ascii=False, indent=2))
+
+                io_utils.write_atomic(
+                    output_dir / "mapping_subset.json",
+                    json.dumps(subset, ensure_ascii=False, indent=2),
+                )
+
                 print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
-       
+
         # 7) roundtrip
         if args.verify_roundtrip:
             ok, details = core.roundtrip_check(file_metas, llm_ready, reverse_map)
@@ -124,15 +129,16 @@ def _write_outputs(llm_ready, reverse_map, output_dir: Path, input_root: Path):
         try:
             rel = abs_p.relative_to(input_root)
         except ValueError:
-            # fallback: usa solo il nome file
             rel = abs_p.name
 
         out_path = output_dir / rel
         io_utils.ensure_dir(out_path.parent)
         io_utils.write_atomic(out_path, text)
 
-    io_utils.write_atomic(output_dir / "reverse_map.json",
-                          json.dumps(reverse_map, ensure_ascii=False, indent=2))
+    io_utils.write_atomic(
+        output_dir / "reverse_map.json",
+        json.dumps(reverse_map, ensure_ascii=False, indent=2),
+    )
 
 
 def _print_report(stats, replacements):
