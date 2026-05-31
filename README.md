@@ -16,7 +16,7 @@ chmod +x chunk.sh build_dict.sh build_dict.py compress_chunk.py verify_pipeline.
 mkdir -p ./tmp && chmod 700 ./tmp
 mkdir -p ./chunks
 
-./chunk.sh ./path
+./chunk.sh /my/path/
 ./build_dict.sh
 ./compress_chunk.py
 ./verify_pipeline.sh
