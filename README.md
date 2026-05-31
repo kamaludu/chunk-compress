@@ -109,3 +109,42 @@ Stampato a terminale:
 5. Risparmi token e mantieni reversibilità totale
 
 ---
+
+## Parametri CLI e descrizione
+
+| **Flag** | **Tipo** | **Descrizione** | **Range / note** | **Esempio** |
+|---|---:|---|---|---|
+| **--input, -i** | stringa | Directory o file‑lista (file di testo con un percorso per riga) da processare. | deve esistere | `--input ./project` |
+| **--output, -o** | stringa | Directory di output dove vengono scritti i file compressi e le mappe. | viene creata se mancante | `--output ./out` |
+| **--L_min** | intero | Lunghezza minima substring per il rolling hash (cattura ripetizioni corte). | pratico: **4**–2000; default **64** | `--L_min 24` |
+| **--N_min** | intero | Numero minimo di occorrenze per considerare una substring candidata. | minimo **2** | `--N_min 2` |
+| **--B_min_lines** | intero | Numero minimo di righe per candidati block. | minimo **1**; ≤ B_max_lines | `--B_min_lines 3` |
+| **--B_max_lines** | intero | Numero massimo di righe per candidati block. | ≥ B_min_lines | `--B_max_lines 10` |
+| **--min_total_saving** | intero | Risparmio totale minimo (caratteri) richiesto per accettare una sostituzione. | minimo **0**; tipico **20–200**; default **100** | `--min_total_saving 20` |
+| **--placeholder-sub** | stringa formato | Formato per i placeholder delle substring; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-sub "<<s{:03d}>>"` |
+| **--placeholder-blk** | stringa formato | Formato per i placeholder dei block; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-blk "<<b{:03d}>>"` |
+| **--export-mapping-for** | stringa (lista) | Lista separata da virgole di nomi file (relativi a `--output`) per cui esportare `mapping_subset.json`. | nomi o percorsi relativi | `--export-mapping-for INSTALL.md,header.html` |
+| **--verify-roundtrip** | flag | Esegue il controllo di roundtrip e fallisce se la ricostruzione non corrisponde. | flag booleano | `--verify-roundtrip` |
+
+---
+
+### Preset aggressivo consigliato
+
+```sh
+python3 cli.py \
+  --input ./project \
+  --output ./out \
+  --L_min 24 \
+  --N_min 2 \
+  --B_min_lines 3 \
+  --B_max_lines 10 \
+  --min_total_saving 20 \
+  --placeholder-sub "<<s{:03d}>>" \
+  --placeholder-blk "<<b{:03d}>>"
+```
+
+---
+
+### Nota rapida
+- **Obiettivo**: abbassare `L_min` e `min_total_saving` e usare placeholder più corti per rendere i singoli file `out/...` molto piccoli; la **reverse_map.json** crescerà.  
+- **Estrazione automatica**: usa `--export-mapping-for` per ottenere `out/mapping_subset.json` contenente solo i placeholder rilevanti per i file selezionati.
