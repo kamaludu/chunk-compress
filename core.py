@@ -11,6 +11,7 @@ Pipeline minima:
 - roundtrip_check
 - estimate_savings
 
+Modifiche principali:
 - extract_mapping_for_files ora accetta percorsi relativi o nomi file e
   restituisce un dizionario pid -> info (senza risolvere a path assoluti).
   Questo rende l'export LLM-ready semplice da costruire in cli.py.
@@ -18,7 +19,6 @@ Pipeline minima:
 
 from pathlib import Path
 import hashlib
-import json
 from typing import Dict, List, Tuple, Any
 
 import io_utils
@@ -81,7 +81,7 @@ def load_contents(file_metas: List[Dict[str, Any]]) -> Dict[str, str]:
         path = meta["path"]
         try:
             text = io_utils.read_utf8(path)
-        except Exception as e:
+        except Exception:
             # file problematico: lo saltiamo, ma manteniamo manifest
             continue
         contents[path] = text
@@ -146,7 +146,6 @@ def _find_substring_candidates(
         # scegliamo la prima come seed
         seed_path, seed_start = occs[0]
         seed_text = contents[seed_path]
-        seed_window = seed_text[seed_start : seed_start + L_min]
 
         # estensione greedy limitata da L_max
         extended_occurrences: List[Tuple[str, int, int]] = []
@@ -170,7 +169,6 @@ def _find_substring_candidates(
                 b += 1
             extended_occurrences.append((path, a, b))
 
-        # normalizza intervallo comune: prendiamo min lunghezza tra occorrenze
         if len(extended_occurrences) < N_min:
             continue
         # per semplicità, usiamo l'intervallo della seed
@@ -226,12 +224,6 @@ def _find_block_candidates(
             continue
         # canonical block = primo
         _, line_idx, size, block = occs[0]
-        # calcolo offset carattere per ogni occorrenza
-        for path, li, sz, blk in occs:
-            text = contents[path]
-            start = _line_index_to_char_offset(text, li)
-            end = start + len(blk)
-            # costruiamo candidate per hash
         content = block
         id_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         cand = {"id_hash": id_hash, "type": "block", "content": content, "occurrences": []}
@@ -276,9 +268,7 @@ def select_replacements(
             scored.append((total_saving, c))
 
     # ordina per risparmio desc, poi lunghezza contenuto desc, poi id_hash
-    scored.sort(
-        key=lambda x: (-x[0], -len(x[1]["content"]), x[1]["id_hash"])
-    )
+    scored.sort(key=lambda x: (-x[0], -len(x[1]["content"]), x[1]["id_hash"]))
 
     occupied: Dict[str, List[Tuple[int, int]]] = {}
     replacements: List[Dict[str, Any]] = []
@@ -307,7 +297,7 @@ def select_replacements(
             placeholder = placeholder_fmt_sub.format(sid)
             sid += 1
         else:
-            pid = f:B:{bid:03d}"
+            pid = f"B:{bid:03d}"
             placeholder = placeholder_fmt_blk.format(bid)
             bid += 1
 
