@@ -383,6 +383,43 @@ def apply_placeholders(
 
     return llm_ready, reverse_map
 
+def extract_mapping_for_files(reverse_map: dict, paths: list) -> dict:
+    """
+    Restituisce un reverse_map ridotto contenente solo i placeholder
+    che hanno almeno un'occurrence in uno dei path indicati.
+
+    Parametri:
+      - reverse_map: dizionario completo come caricato da reverse_map.json
+      - paths: lista di path (assoluti o relativi) dei file di output per i quali
+               vogliamo estrarre i placeholder.
+
+    Confronti effettuati:
+      - confronto su path assoluto risolto via Path.resolve()
+      - confronto su basename (Path.name)
+    """
+    from pathlib import Path
+
+    # Normalizza i path forniti dall'utente: risolvi assoluti e prendi i basenames
+    norm_abs = {str(Path(p).resolve()) for p in paths}
+    norm_names = {Path(p).name for p in paths}
+
+    out = {"placeholders": {}}
+    placeholders = reverse_map.get("placeholders", {})
+    for pid, info in placeholders.items():
+        occs = info.get("occurrences", [])
+        for occ in occs:
+            occ_path = occ.get("path")
+            if not occ_path:
+                continue
+            try:
+                occ_abs = str(Path(occ_path).resolve())
+            except Exception:
+                occ_abs = occ_path
+            occ_name = Path(occ_path).name
+            if occ_abs in norm_abs or occ_name in norm_names:
+                out["placeholders"][pid] = info
+                break
+    return out
 
 # -------------------------
 # Roundtrip check
