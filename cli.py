@@ -10,10 +10,10 @@ Orchestratore della pipeline:
 
 import argparse
 import sys
+import json
 from pathlib import Path
 import core
 import io_utils
-
 
 def parse_args():
     p = argparse.ArgumentParser(description="Local reversible compressor (LLM-ready)")
