@@ -67,6 +67,19 @@ def main():
         # 6) write outputs
         _write_outputs(llm_ready, reverse_map, output_dir, input_path)
 
+        # 6b) optional: export reduced mapping for selected files
+        if getattr(args, "export_mapping_for", ""):
+            files = [s.strip() for s in args.export_mapping_for.split(",") if s.strip()]
+            if files:
+                # costruisci lista di path assoluti relativi alla directory di output
+                abs_files = [str((output_dir / f).resolve()) for f in files]
+                # estrai subset usando la funzione in core.py
+                subset = core.extract_mapping_for_files(reverse_map, abs_files)
+                # scrivi mapping_subset.json in output_dir in modo atomico
+                io_utils.write_atomic(output_dir / "mapping_subset.json",
+                                      json.dumps(subset, ensure_ascii=False, indent=2))
+                print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
+       
         # 7) roundtrip
         if args.verify_roundtrip:
             ok, details = core.roundtrip_check(file_metas, llm_ready, reverse_map)
