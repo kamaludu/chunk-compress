@@ -24,8 +24,12 @@ def parse_args():
     p.add_argument("--B_min_lines", type=int, default=5)
     p.add_argument("--B_max_lines", type=int, default=20)
     p.add_argument("--verify-roundtrip", action="store_true")
+    p.add_argument(
+        "--export-mapping-for",
+        help="Comma-separated list of output filenames (relative to OUTPUT dir) for which to export a reduced mapping (writes mapping_subset.json in output dir)",
+        default="",
+    )
     return p.parse_args()
-
 
 def main():
     args = parse_args()
