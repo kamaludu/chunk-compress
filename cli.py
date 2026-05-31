@@ -30,6 +30,22 @@ def parse_args():
         help="Comma-separated list of output filenames (relative to OUTPUT dir) for which to export a reduced mapping (writes mapping_subset.json in output dir)",
         default="",
     )
+    p.add_argument(
+        "--min_total_saving",
+        type=int,
+        default=100,
+        help="Soglia totale risparmio per accettare una sostituzione (passata a select_replacements)",
+    )
+    p.add_argument(
+        "--placeholder-sub",
+        default="<<s{:03d}>>",
+        help="Formato placeholder per substring (es. '<<s{:03d}>>')",
+    )
+    p.add_argument(
+        "--placeholder-blk",
+        default="<<b{:03d}>>",
+        help="Formato placeholder per block (es. '<<b{:03d}>>')",
+    )
     return p.parse_args()
 
 
@@ -60,8 +76,13 @@ def main():
             B_max_lines=args.B_max_lines,
         )
 
-        # 4) select
-        replacements = core.select_replacements(candidates)
+        # 4) select (passiamo soglia e formati placeholder)
+        replacements = core.select_replacements(
+            candidates,
+            placeholder_fmt_sub=args.placeholder_sub,
+            placeholder_fmt_blk=args.placeholder_blk,
+            min_total_saving=args.min_total_saving,
+        )
 
         # 5) apply
         llm_ready, reverse_map = core.apply_placeholders(contents, replacements)
