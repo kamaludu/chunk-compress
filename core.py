@@ -478,6 +478,66 @@ def roundtrip_check(
 
     return ok_all, details
 
+# -------------------------
+# Manifest
+# -------------------------
+def build_manifest(file_metas: List[Dict[str, Any]], reverse_map: Dict[str, Any], input_root: str) -> Dict[str, Any]:
+    """
+    Costruisce il manifest compatto:
+    {
+      "paths": [...],
+      "files": [{"i":idx,"sha":sha,"ph":[...]}...],
+      "ph": {"S:001":{"sha":"...","len":120}, ...},
+      "v":1
+    }
+    - file_metas: output di scan_files()
+    - reverse_map: struttura completa da apply_placeholders()
+    - input_root: path usato come root per rendere i path relativi
+    """
+    from pathlib import Path
+
+    root = Path(input_root)
+    # ordina file_metas per path per stabilità
+    metas_sorted = sorted(file_metas, key=lambda m: m["path"])
+    paths: List[str] = []
+    files: List[Dict[str, Any]] = []
+    path_to_idx: Dict[str, int] = {}
+
+    for idx, m in enumerate(metas_sorted):
+        # path relativo rispetto a root; se non sotto root, usa basename
+        try:
+            rel = Path(m["path"]).relative_to(root)
+            p = str(rel).replace("\\", "/")
+        except Exception:
+            p = Path(m["path"]).name
+        paths.append(p)
+        path_to_idx[m["path"]] = idx
+        files.append({"i": idx, "sha": m.get("sha256", ""), "ph": []})
+
+    # placeholders index: minimal metadata
+    ph_index: Dict[str, Dict[str, Any]] = {}
+    placeholders = reverse_map.get("placeholders", {})
+    for pid, info in placeholders.items():
+        ph_index[pid] = {"sha": info.get("sha256", ""), "len": info.get("length", 0)}
+
+        # per ogni occurrence, aggiungi il pid alla entry file corrispondente
+        for occ in info.get("occurrences", []):
+            occ_path = occ.get("path")
+            if occ_path in path_to_idx:
+                idx = path_to_idx[occ_path]
+                if pid not in files[idx]["ph"]:
+                    files[idx]["ph"].append(pid)
+            else:
+                # tentativo di match su basename se path assoluto differente
+                for m in metas_sorted:
+                    if Path(m["path"]).name == Path(occ_path).name:
+                        idx = path_to_idx[m["path"]]
+                        if pid not in files[idx]["ph"]:
+                            files[idx]["ph"].append(pid)
+                        break
+
+    manifest = {"paths": paths, "files": files, "ph": ph_index, "v": 1}
+    return manifest
 
 # -------------------------
 # Stima risparmio
