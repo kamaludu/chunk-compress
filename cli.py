@@ -71,8 +71,23 @@ def main():
         if getattr(args, "export_mapping_for", ""):
             files = [s.strip() for s in args.export_mapping_for.split(",") if s.strip()]
             if files:
-                # costruisci lista di path assoluti relativi alla directory di output
-                abs_files = [str((output_dir / f).resolve()) for f in files]
+                # costruisci lista di path assoluti da confrontare:
+                # - output_dir / f (file scritto in out/)
+                # - input_path / f  (file sorgente originale, se input_path è directory)
+                from pathlib import Path
+                abs_files = []
+                for f in files:
+                    try:
+                        abs_files.append(str((Path(output_dir) / f).resolve()))
+                    except Exception:
+                        pass
+                    # se l'input era una directory, aggiungiamo anche il possibile path sorgente
+                    try:
+                        abs_files.append(str((Path(args.input) / f).resolve()))
+                    except Exception:
+                        pass
+                # rimuoviamo duplicati
+                abs_files = list(dict.fromkeys(abs_files))
                 # estrai subset usando la funzione in core.py
                 subset = core.extract_mapping_for_files(reverse_map, abs_files)
                 # scrivi mapping_subset.json in output_dir in modo atomico
