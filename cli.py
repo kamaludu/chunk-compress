@@ -8,6 +8,7 @@ Orchestratore della pipeline:
 - stampa report
 
 - export mapping_subset.json in formato LLM-ready (solo placeholder -> {content, sha256, length})
+- export manifest compatto (paths/files/ph/v)
 - quando si costruisce la lista di file per l'export non si usa .resolve() (evita path assoluti)
 - comportamento LLM-ready di default per mapping_subset.json quando si usa --export-mapping-for
 """
@@ -33,6 +34,11 @@ def parse_args():
         "--export-mapping-for",
         help="Comma-separated list di nomi file (relativi a OUTPUT) per cui esportare il mapping ridotto (scrive mapping_subset.json in output dir)",
         default="",
+    )
+    p.add_argument(
+        "--export-manifest",
+        action="store_true",
+        help="Esporta manifest.json compatto dei file processati (paths/files/ph/v)",
     )
     p.add_argument(
         "--min_total_saving",
@@ -126,13 +132,13 @@ def main():
                     content = entry.get("content") if isinstance(entry, dict) else None
                     if content is None:
                         # se entry è una lista di occorrenze, recuperiamo il contenuto dal reverse_map principale
-                        rm_entry = reverse_map.get(ph)
+                        rm_entry = reverse_map.get("placeholders", {}).get(ph) if isinstance(reverse_map, dict) else None
                         if isinstance(rm_entry, dict):
                             content = rm_entry.get("content")
                     if content is None:
                         # skip se non troviamo contenuto
                         continue
-                    sha = entry.get("sha256") if isinstance(entry, dict) else reverse_map.get(ph, {}).get("sha256", "")
+                    sha = entry.get("sha256") if isinstance(entry, dict) else reverse_map.get("placeholders", {}).get(ph, {}).get("sha256", "")
                     length = entry.get("length") if isinstance(entry, dict) else len(content)
                     llm_subset["placeholders"][ph] = {
                         "content": content,
@@ -146,6 +152,18 @@ def main():
                 )
 
                 print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
+
+        # 6c) export manifest compatto se richiesto
+        if getattr(args, "export_manifest", False):
+            try:
+                manifest = core.build_manifest(file_metas, reverse_map, str(input_path))
+                io_utils.write_atomic(
+                    output_dir / "manifest.json",
+                    json.dumps(manifest, ensure_ascii=False, separators=(",", ":")),
+                )
+                print(f"Manifest scritto in: {output_dir / 'manifest.json'}")
+            except Exception as e:
+                print(f"Errore durante la generazione del manifest: {e}", file=sys.stderr)
 
         # 7) roundtrip
         if args.verify_roundtrip:
