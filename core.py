@@ -7,9 +7,13 @@ Pipeline minima:
 - find_repetitions (substring + blocchi)
 - select_replacements
 - apply_placeholders
-- write_outputs (chiamata da cli, non definita qui)
+- extract_mapping_for_files (estrazione LLM-ready o subset per export)
 - roundtrip_check
 - estimate_savings
+
+- extract_mapping_for_files ora accetta percorsi relativi o nomi file e
+  restituisce un dizionario pid -> info (senza risolvere a path assoluti).
+  Questo rende l'export LLM-ready semplice da costruire in cli.py.
 """
 
 from pathlib import Path
@@ -69,6 +73,7 @@ def scan_files(input_path: str) -> List[Dict[str, Any]]:
     if not metas:
         raise RuntimeError("No valid files found in input")
     return metas
+
 
 def load_contents(file_metas: List[Dict[str, Any]]) -> Dict[str, str]:
     contents: Dict[str, str] = {}
@@ -302,7 +307,7 @@ def select_replacements(
             placeholder = placeholder_fmt_sub.format(sid)
             sid += 1
         else:
-            pid = f"B:{bid:03d}"
+            pid = f:B:{bid:03d}"
             placeholder = placeholder_fmt_blk.format(bid)
             bid += 1
 
@@ -384,27 +389,29 @@ def apply_placeholders(
 
     return llm_ready, reverse_map
 
+
 def extract_mapping_for_files(reverse_map: dict, paths: list) -> dict:
     """
-    Restituisce un reverse_map ridotto contenente solo i placeholder
+    Restituisce un dizionario pid -> info contenente solo i placeholder
     che hanno almeno un'occurrence in uno dei path indicati.
 
     Parametri:
       - reverse_map: dizionario completo come caricato da reverse_map.json
-      - paths: lista di path (assoluti o relativi) dei file di output per i quali
+      - paths: lista di path (relativi o nomi file) dei file di output per i quali
                vogliamo estrarre i placeholder.
 
     Confronti effettuati:
-      - confronto su path assoluto risolto via Path.resolve()
       - confronto su basename (Path.name)
+      - confronto su suffix (occ_path.endswith(provided_path)) per supportare percorsi relativi
     """
     from pathlib import Path
 
-    # Normalizza i path forniti dall'utente: risolvi assoluti e prendi i basenames
-    norm_abs = {str(Path(p).resolve()) for p in paths}
-    norm_names = {Path(p).name for p in paths}
+    # Normalizza i path forniti dall'utente: manteniamo i valori così come sono (non risolviamo)
+    norm = [p.strip() for p in paths if p and p.strip()]
+    norm_set = set(norm)
+    norm_names = {Path(p).name for p in norm_set}
 
-    out = {"placeholders": {}}
+    out: Dict[str, Any] = {}
     placeholders = reverse_map.get("placeholders", {})
     for pid, info in placeholders.items():
         occs = info.get("occurrences", [])
@@ -412,15 +419,22 @@ def extract_mapping_for_files(reverse_map: dict, paths: list) -> dict:
             occ_path = occ.get("path")
             if not occ_path:
                 continue
-            try:
-                occ_abs = str(Path(occ_path).resolve())
-            except Exception:
-                occ_abs = occ_path
             occ_name = Path(occ_path).name
-            if occ_abs in norm_abs or occ_name in norm_names:
-                out["placeholders"][pid] = info
+            matched = False
+            # match by basename
+            if occ_name in norm_names:
+                matched = True
+            else:
+                # match by suffix: supporta percorsi relativi forniti come "dir/file" o "file"
+                for p in norm:
+                    if occ_path.endswith(p):
+                        matched = True
+                        break
+            if matched:
+                out[pid] = info
                 break
     return out
+
 
 # -------------------------
 # Roundtrip check
@@ -446,15 +460,24 @@ def roundtrip_check(
                 details.append(f"Original file changed unexpectedly: {path}")
             continue
 
-        # ricostruzione basata su posizioni
-        # costruiamo lista di segmenti: partiamo dal testo trasformato e sostituiamo placeholder
+        # ricostruzione basata su sostituzione globale dei placeholder
         recon = transformed
-        # per semplicità, usiamo replace globale (placeholder è token unico),
-        # ma la correttezza è garantita dal fatto che i placeholder non compaiono nel testo originale
+        # sostituiamo usando i placeholder registrati in reverse_map
+        # notare: reverse_map usa pid come chiave (es. "S:001") e contiene "content"
+        # i placeholder effettivi nel testo sono quelli generati da select_replacements (es. "<<s001>>")
+        # per semplicità qui proviamo a sostituire ogni placeholder token presente nella mappa:
         for pid, info in placeholders.items():
-            token = f"<<{pid}>>"
-            if token in recon:
-                recon = recon.replace(token, info["content"])
+            # cerchiamo il token effettivo nel testo: proviamo diverse forme comuni
+            token_candidates = []
+            # forma con pid diretto
+            token_candidates.append(f"<<{pid}>>")
+            # forma senza due punti (S001) e con lettere minuscole/maiuscole
+            token_candidates.append(f"<<{pid.replace(':','')}>>")
+            token_candidates.append(f"<<{pid.replace(':','').lower()}>>")
+            token_candidates.append(f"<<{pid.replace(':','').upper()}>>")
+            for token in token_candidates:
+                if token in recon:
+                    recon = recon.replace(token, info["content"])
 
         recon_sha = io_utils.sha256_text(recon)
         if recon_sha != original_sha:
