@@ -325,6 +325,16 @@ def select_replacements(
 def apply_placeholders(
     contents: Dict[str, str], replacements: List[Dict[str, Any]]
 ) -> Tuple[Dict[str, str], Dict[str, Any]]:
+    """
+    Applica i placeholder ai testi forniti.
+
+    Robustezze aggiunte:
+    - Verifica che l'intervallo [start:end] corrisponda effettivamente al contenuto
+      atteso prima di sostituire; se non corrisponde, l'occorrenza viene saltata.
+    - Salva il token effettivo in reverse_map (campo 'token') — già richiesto in precedenza.
+    - Evita sostituzioni sovrapposte gestite in select_replacements; qui saltiamo
+      eventuali occorrenze incoerenti per non corrompere il file.
+    """
     per_file: Dict[str, List[Dict[str, Any]]] = {}
     for r in replacements:
         for o in r["occurrences"]:
@@ -356,8 +366,16 @@ def apply_placeholders(
         for r in repls:
             s = r["start"]
             e = r["end"]
-            if s < last:
-                # sovrapposizione inattesa, salta
+            # sanity checks: intervallo valido e non sovrapposto rispetto a last
+            if s < last or s < 0 or e > len(text) or e <= s:
+                # salto occorrenza invalida o sovrapposta
+                continue
+            # verifica che il contenuto nell'intervallo corrisponda al content registrato
+            actual = text[s:e]
+            expected = r.get("content", "")
+            if actual != expected:
+                # occorrenza incoerente: non sostituiamo; manteniamo il testo originale
+                # (non aggiorniamo last, quindi il testo originale rimane)
                 continue
             out_parts.append(text[last:s])
             out_parts.append(r["placeholder"])
@@ -379,7 +397,6 @@ def apply_placeholders(
         llm_ready[path] = "".join(out_parts)
 
     return llm_ready, reverse_map
-
 
 def extract_mapping_for_files(reverse_map: dict, paths: list) -> dict:
     """
