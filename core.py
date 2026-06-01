@@ -371,6 +371,7 @@ def apply_placeholders(
                     "sha256": hashlib.sha256(r["content"].encode("utf-8")).hexdigest(),
                     "length": len(r["content"]),
                     "occurrences": [],
+                    "token": r["placeholder"],
                 },
             )
             entry["occurrences"].append({"path": path, "start": s, "end": e})
