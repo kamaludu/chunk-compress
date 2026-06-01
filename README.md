@@ -75,8 +75,8 @@ Dentro la directory `out/` troverai:
 ### 1) **File compressi LLM‑ready**
 Stessa struttura dei file originali, ma con placeholder tipo:
 ```
-<<S:001>>
-<<B:002>>
+§§S:001§§
+§§B:002§§
 ```
 
 ### 2) **reverse_map.json**
@@ -121,8 +121,8 @@ Stampato a terminale:
 | **--B_min_lines** | intero | Numero minimo di righe per candidati block. | minimo **1**; ≤ B_max_lines | `--B_min_lines 3` |
 | **--B_max_lines** | intero | Numero massimo di righe per candidati block. | ≥ B_min_lines | `--B_max_lines 10` |
 | **--min_total_saving** | intero | Risparmio totale minimo (caratteri) richiesto per accettare una sostituzione. | minimo **0**; tipico **20–200**; default **100** | `--min_total_saving 20` |
-| **--placeholder-sub** | stringa formato | Formato per i placeholder delle substring; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-sub "<<s{:03d}>>"` |
-| **--placeholder-blk** | stringa formato | Formato per i placeholder dei block; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-blk "<<b{:03d}>>"` |
+| **--placeholder-sub** | stringa formato | Formato per i placeholder delle substring; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-sub "§§s{:03d}§§"` |
+| **--placeholder-blk** | stringa formato | Formato per i placeholder dei block; deve contenere un token di formato. | più corto → file più piccoli | `--placeholder-blk "§§b{:03d}§§"` |
 | **--export-mapping-for** | stringa (lista) | Lista separata da virgole di nomi file (relativi a `--output`) per cui esportare `mapping_subset.json`. | nomi o percorsi relativi | `--export-mapping-for INSTALL.md,header.html` |
 | **--export-manifest** | flag | Genera `manifest.json` compatto e LLM‑friendly in OUT_DIR (contiene `paths`, `files` con `i`/`sha`/`ph`, `ph` metadati `sha`/`len`, `v`); usa path relativi e evita path assoluti e file filtrati. | flag booleano | `--export-manifest` |
 | **--verify-roundtrip** | flag | Esegue il controllo di roundtrip e fallisce se la ricostruzione non corrisponde. | flag booleano | `--verify-roundtrip` |
