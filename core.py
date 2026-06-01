@@ -435,17 +435,32 @@ def roundtrip_check(
     llm_ready: Dict[str, str],
     reverse_map: Dict[str, Any],
 ) -> Tuple[bool, List[str]]:
+    """
+    Verifica che i file trasformati (llm_ready) possano essere ricostruiti
+    sostituendo i placeholder con i contenuti in reverse_map e che il SHA256
+    risultante corrisponda allo SHA originale in file_metas.
+
+    Migliorie applicate:
+    - usa il campo 'token' salvato in reverse_map (se presente) come prima scelta
+    - mantiene un fallback euristico compatibile con il comportamento precedente
+    - esegue sostituzioni globali (replace su tutta la stringa)
+    """
     meta_by_path = {m["path"]: m for m in file_metas}
     placeholders = reverse_map.get("placeholders", {})
     details: List[str] = []
     ok_all = True
 
     for path, meta in meta_by_path.items():
-        original_sha = meta["sha256"]
+        original_sha = meta.get("sha256", "")
         transformed = llm_ready.get(path)
         if transformed is None:
-            # file non trasformato: ricontrolla sha originale
-            cur_sha = io_utils.sha256_file(path)
+            # file non trasformato: ricontrolla sha originale sul file fisico
+            try:
+                cur_sha = io_utils.sha256_file(path)
+            except Exception:
+                ok_all = False
+                details.append(f"Cannot read original file for SHA check: {path}")
+                continue
             if cur_sha != original_sha:
                 ok_all = False
                 details.append(f"Original file changed unexpectedly: {path}")
@@ -453,23 +468,29 @@ def roundtrip_check(
 
         # ricostruzione basata su sostituzione globale dei placeholder
         recon = transformed
-        # sostituiamo usando i placeholder registrati in reverse_map
-        # notare: reverse_map usa pid come chiave (es. "S:001") e contiene "content"
-        # i placeholder effettivi nel testo sono quelli generati da select_replacements (es. "<<s001>>")
-        # per semplicità qui proviamo a sostituire ogni placeholder token presente nella mappa:
-        for pid, info in placeholders.items():
-            # cerchiamo il token effettivo nel testo: proviamo diverse forme comuni
-            token_candidates = []
-            # forma con pid diretto
-            token_candidates.append(f"<<{pid}>>")
-            # forma senza due punti (S001) e con lettere minuscole/maiuscole
-            token_candidates.append(f"<<{pid.replace(':','')}>>")
-            token_candidates.append(f"<<{pid.replace(':','').lower()}>>")
-            token_candidates.append(f"<<{pid.replace(':','').upper()}>>")
-            for token in token_candidates:
-                if token in recon:
-                    recon = recon.replace(token, info["content"])
 
+        # Applichiamo le sostituzioni usando prima il token esplicito (se presente),
+        # altrimenti proviamo le forme euristiche già usate in precedenza.
+        for pid, info in placeholders.items():
+            content = info.get("content", "")
+            # preferiamo il token esplicito salvato durante apply_placeholders
+            token = info.get("token")
+            if token:
+                if token in recon:
+                    recon = recon.replace(token, content)
+                # anche se token non è presente, proviamo comunque i fallback per coprire casi misti
+            # fallback euristico (compatibilità retroattiva)
+            token_candidates = [
+                f"<<{pid}>>",
+                f"<<{pid.replace(':','')}>>",
+                f"<<{pid.replace(':','').lower()}>>",
+                f"<<{pid.replace(':','').upper()}>>",
+            ]
+            for token_c in token_candidates:
+                if token_c in recon:
+                    recon = recon.replace(token_c, content)
+
+        # calcolo SHA della ricostruzione e confronto
         recon_sha = io_utils.sha256_text(recon)
         if recon_sha != original_sha:
             ok_all = False
