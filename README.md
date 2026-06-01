@@ -1,4 +1,8 @@
-# README — Uso minimo del compressore locale LLM‑ready
+# Uso minimo del compressore locale LLM‑ready
+
+Piccolo compressore reversibile per testo, pensato per LLM: placeholder + manifest + chunking + roundtrip verificabile.
+
+---
 
 **Clone locale:**
 ```sh
