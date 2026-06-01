@@ -162,6 +162,10 @@ def main():
                 # serializziamo il manifest dei chunk in OUT_DIR/chunks/manifest.json
                 chunks_dir = output_dir / "chunks"
                 io_utils.ensure_dir(chunks_dir)
+                # assicurati che chunks_manifest contenga 'chunks_dir' (valore relativo)
+                if isinstance(chunks_manifest, dict) and "chunks_dir" not in chunks_manifest:
+                    # default: i chunk sono scritti in una sottodirectory chiamata "chunks"
+                    chunks_manifest["chunks_dir"] = "chunks"
                 io_utils.write_atomic(
                     chunks_dir / "manifest.json",
                     json.dumps(chunks_manifest, ensure_ascii=False, indent=2),
@@ -177,6 +181,11 @@ def main():
                 print("Roundtrip FAILED:", file=sys.stderr)
                 for d in details:
                     print(" -", d, file=sys.stderr)
+                # scrivi un report diagnostico in output_dir per debug
+                try:
+                    io_utils.write_atomic(output_dir / "roundtrip_failures.json", json.dumps(details, ensure_ascii=False, indent=2))
+                except Exception:
+                    pass
                 sys.exit(2)
 
         # 8) report
@@ -193,7 +202,9 @@ def main():
 def _write_outputs(llm_ready, reverse_map, output_dir: Path, input_root: Path):
     """
     Scrive i file trasformati preservando la struttura relativa rispetto all'input.
+    Raccoglie errori di scrittura e li solleva come RuntimeError se presenti.
     """
+    errors = []
     for abs_path, text in llm_ready.items():
         abs_p = Path(abs_path)
         try:
@@ -203,13 +214,23 @@ def _write_outputs(llm_ready, reverse_map, output_dir: Path, input_root: Path):
 
         out_path = output_dir / rel
         io_utils.ensure_dir(out_path.parent)
-        io_utils.write_atomic(out_path, text)
+        try:
+            io_utils.write_atomic(out_path, text)
+        except Exception as e:
+            errors.append((str(out_path), str(e)))
 
-    # scriviamo la reverse_map completa (solo locale, utile per ricostruzione e debug)
-    io_utils.write_atomic(
-        output_dir / "reverse_map.json",
-        json.dumps(reverse_map, ensure_ascii=False, indent=2),
-    )
+    try:
+        io_utils.write_atomic(
+            output_dir / "reverse_map.json",
+            json.dumps(reverse_map, ensure_ascii=False, indent=2),
+        )
+    except Exception as e:
+        errors.append((str(output_dir / "reverse_map.json"), str(e)))
+
+    if errors:
+        for p, err in errors:
+            print(f"Errore scrittura {p}: {err}", file=sys.stderr)
+        raise RuntimeError("Errori durante la scrittura degli output")
 
 
 def _print_report(stats, replacements):
