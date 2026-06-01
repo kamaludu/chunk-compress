@@ -540,6 +540,85 @@ def build_manifest(file_metas: List[Dict[str, Any]], reverse_map: Dict[str, Any]
     return manifest
 
 # -------------------------
+# Chunks 
+# -------------------------
+def chunk_outputs(
+    llm_ready: Dict[str, str],
+    output_dir: Path,
+    chunk_size: int,
+    input_root: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """
+    Divide i testi compressi (llm_ready: abs_path -> contenuto) in chunk testuali.
+    Scrive i chunk in OUT_DIR/chunks/<relative_path>/0001.txt ...
+    Restituisce un manifest strutturato come richiesto:
+    {
+      "files": {
+        "<relative_path>": {
+          "chunks": ["chunks/<rel_path>/0001.txt", ...],
+          "sha256_full": "<sha256_del_file_compresso_intero>",
+          "chunk_size": <chunk_size_usato>,
+          "total_len": <len_caratteri_file_compresso>
+        }, ...
+      },
+      "v": 1
+    }
+    - input_root: Path usato per calcolare path relativi; se None, si usa basename.
+    """
+    out_manifest: Dict[str, Any] = {"files": {}, "v": 1}
+    chunks_root = Path(output_dir) / "chunks"
+    io_utils.ensure_dir(chunks_root)
+
+    for abs_path, text in llm_ready.items():
+        abs_p = Path(abs_path)
+        # calcola path relativo rispetto a input_root se fornito
+        if input_root:
+            try:
+                rel = abs_p.relative_to(input_root)
+                rel_path = rel.as_posix()
+            except Exception:
+                rel_path = abs_p.name
+        else:
+            rel_path = abs_p.name
+
+        # directory per i chunk: chunks/<rel_path> (sostituiamo separatori con '/')
+        chunk_dir = chunks_root / Path(rel_path)
+        io_utils.ensure_dir(chunk_dir)
+
+        total_len = len(text)
+        sha_full = io_utils.sha256_text(text)
+        chunks_list: List[str] = []
+
+        if total_len == 0:
+            # scrivi un chunk vuoto per consistenza
+            chunk_name = f"{1:04d}.txt"
+            chunk_path = chunk_dir / chunk_name
+            io_utils.write_atomic(chunk_path, "")
+            chunks_list.append(str(Path("chunks") / Path(rel_path) / chunk_name).replace("\\", "/"))
+        else:
+            # suddividi in chunk di dimensione chunk_size (caratteri)
+            idx = 1
+            start = 0
+            while start < total_len:
+                end = min(start + chunk_size, total_len)
+                part = text[start:end]
+                chunk_name = f"{idx:04d}.txt"
+                chunk_path = chunk_dir / chunk_name
+                io_utils.write_atomic(chunk_path, part)
+                chunks_list.append(str(Path("chunks") / Path(rel_path) / chunk_name).replace("\\", "/"))
+                idx += 1
+                start = end
+
+        out_manifest["files"][rel_path] = {
+            "chunks": chunks_list,
+            "sha256_full": sha_full,
+            "chunk_size": chunk_size,
+            "total_len": total_len,
+        }
+
+    return out_manifest
+  
+# -------------------------
 # Stima risparmio
 # -------------------------
 def estimate_savings(
