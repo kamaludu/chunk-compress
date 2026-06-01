@@ -19,7 +19,7 @@ Modifiche principali:
 
 from pathlib import Path
 import hashlib
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 
 import io_utils
 
