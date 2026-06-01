@@ -11,16 +11,18 @@ Pipeline minima:
 - roundtrip_check
 - estimate_savings
 
-Modifiche principali:
-- extract_mapping_for_files ora accetta percorsi relativi o nomi file e
-  restituisce un dizionario pid -> info (senza risolvere a path assoluti).
-  Questo rende l'export LLM-ready semplice da costruire in cli.py.
+Note:
+- load_contents usa io_utils.read_text per coerenza con io_utils aggiornato.
+- select_replacements default placeholder format allineato a '§§' usato in CLI.
+- roundtrip_check usa i token espliciti salvati in reverse_map e una sostituzione
+  regex ordinata per lunghezza per evitare collisioni parziali.
+- chunk_outputs include 'chunks_dir' e produce percorsi relativi rispetto a chunks_dir.
 """
 
 from pathlib import Path
 import hashlib
 from typing import Dict, List, Tuple, Any, Optional
-
+import re
 import io_utils
 
 # -------------------------
@@ -80,7 +82,8 @@ def load_contents(file_metas: List[Dict[str, Any]]) -> Dict[str, str]:
     for meta in file_metas:
         path = meta["path"]
         try:
-            text = io_utils.read_utf8(path)
+            # usa read_text coerente con io_utils aggiornato
+            text = io_utils.read_text(path)
         except Exception:
             # file problematico: lo saltiamo, ma manteniamo manifest
             continue
@@ -248,8 +251,8 @@ def _line_index_to_char_offset(text: str, line_index: int) -> int:
 # -------------------------
 def select_replacements(
     candidates: List[Dict[str, Any]],
-    placeholder_fmt_sub: str = "<<S:{:03d}>>",
-    placeholder_fmt_blk: str = "<<B:{:03d}>>",
+    placeholder_fmt_sub: str = "§§s{:03d}§§",
+    placeholder_fmt_blk: str = "§§b{:03d}§§",
     min_total_saving: int = 100,
 ) -> List[Dict[str, Any]]:
     scored: List[Tuple[int, Dict[str, Any]]] = []
@@ -331,7 +334,7 @@ def apply_placeholders(
     Robustezze aggiunte:
     - Verifica che l'intervallo [start:end] corrisponda effettivamente al contenuto
       atteso prima di sostituire; se non corrisponde, l'occorrenza viene saltata.
-    - Salva il token effettivo in reverse_map (campo 'token') — già richiesto in precedenza.
+    - Salva il token effettivo in reverse_map (campo 'token').
     - Evita sostituzioni sovrapposte gestite in select_replacements; qui saltiamo
       eventuali occorrenze incoerenti per non corrompere il file.
     """
@@ -398,50 +401,32 @@ def apply_placeholders(
 
     return llm_ready, reverse_map
 
-def extract_mapping_for_files(reverse_map: dict, paths: list) -> dict:
+
+def _build_token_map_from_reverse_map(reverse_map: Dict[str, Any]) -> Dict[str, str]:
     """
-    Restituisce un dizionario pid -> info contenente solo i placeholder
-    che hanno almeno un'occurrence in uno dei path indicati.
-
-    Parametri:
-      - reverse_map: dizionario completo come caricato da reverse_map.json
-      - paths: lista di path (relativi o nomi file) dei file di output per i quali
-               vogliamo estrarre i placeholder.
-
-    Confronti effettuati:
-      - confronto su basename (Path.name)
-      - confronto su suffix (occ_path.endswith(provided_path)) per supportare percorsi relativi
+    Restituisce mapping token -> content usando il campo 'token' se presente,
+    altrimenti ignora l'entry.
     """
-    from pathlib import Path
+    token_map: Dict[str, str] = {}
+    for pid, info in reverse_map.get("placeholders", {}).items():
+        tok = info.get("token")
+        if tok:
+            token_map[tok] = info.get("content", "")
+    return token_map
 
-    # Normalizza i path forniti dall'utente: manteniamo i valori così come sono (non risolviamo)
-    norm = [p.strip() for p in paths if p and p.strip()]
-    norm_set = set(norm)
-    norm_names = {Path(p).name for p in norm_set}
 
-    out: Dict[str, Any] = {}
-    placeholders = reverse_map.get("placeholders", {})
-    for pid, info in placeholders.items():
-        occs = info.get("occurrences", [])
-        for occ in occs:
-            occ_path = occ.get("path")
-            if not occ_path:
-                continue
-            occ_name = Path(occ_path).name
-            matched = False
-            # match by basename
-            if occ_name in norm_names:
-                matched = True
-            else:
-                # match by suffix: supporta percorsi relativi forniti come "dir/file" o "file"
-                for p in norm:
-                    if occ_path.endswith(p):
-                        matched = True
-                        break
-            if matched:
-                out[pid] = info
-                break
-    return out
+def _reconstruct_using_tokens(transformed: str, token_map: Dict[str, str]) -> str:
+    """
+    Ricostruisce il testo sostituendo i token esatti presenti in token_map.
+    Usa una regex che unisce i token ordinati per lunghezza decrescente per
+    evitare collisioni parziali.
+    """
+    if not token_map:
+        return transformed
+    # ordina token per lunghezza decrescente
+    tokens_sorted = sorted(token_map.keys(), key=len, reverse=True)
+    pattern = re.compile("|".join(re.escape(t) for t in tokens_sorted))
+    return pattern.sub(lambda m: token_map[m.group(0)], transformed)
 
 
 # -------------------------
@@ -457,15 +442,18 @@ def roundtrip_check(
     sostituendo i placeholder con i contenuti in reverse_map e che il SHA256
     risultante corrisponda allo SHA originale in file_metas.
 
-    Migliorie applicate:
+    Migliorie:
     - usa il campo 'token' salvato in reverse_map (se presente) come prima scelta
-    - mantiene un fallback euristico compatibile con il comportamento precedente
-    - esegue sostituzioni globali (replace su tutta la stringa)
+    - sostituzione basata su regex ordinata per lunghezza per evitare collisioni
+    - fallback: se token non presente, non tenta forme ambigue automaticamente
+      (riduce falsi positivi). Se necessario, il caller può eseguire fallback esterni.
     """
     meta_by_path = {m["path"]: m for m in file_metas}
-    placeholders = reverse_map.get("placeholders", {})
     details: List[str] = []
     ok_all = True
+
+    # costruisci token_map una sola volta
+    token_map = _build_token_map_from_reverse_map(reverse_map)
 
     for path, meta in meta_by_path.items():
         original_sha = meta.get("sha256", "")
@@ -483,29 +471,8 @@ def roundtrip_check(
                 details.append(f"Original file changed unexpectedly: {path}")
             continue
 
-        # ricostruzione basata su sostituzione globale dei placeholder
-        recon = transformed
-
-        # Applichiamo le sostituzioni usando prima il token esplicito (se presente),
-        # altrimenti proviamo le forme euristiche già usate in precedenza.
-        for pid, info in placeholders.items():
-            content = info.get("content", "")
-            # preferiamo il token esplicito salvato durante apply_placeholders
-            token = info.get("token")
-            if token:
-                if token in recon:
-                    recon = recon.replace(token, content)
-                # anche se token non è presente, proviamo comunque i fallback per coprire casi misti
-            # fallback euristico (compatibilità retroattiva)
-            token_candidates = [
-                f"<<{pid}>>",
-                f"<<{pid.replace(':','')}>>",
-                f"<<{pid.replace(':','').lower()}>>",
-                f"<<{pid.replace(':','').upper()}>>",
-            ]
-            for token_c in token_candidates:
-                if token_c in recon:
-                    recon = recon.replace(token_c, content)
+        # ricostruzione basata su token espliciti
+        recon = _reconstruct_using_tokens(transformed, token_map)
 
         # calcolo SHA della ricostruzione e confronto
         recon_sha = io_utils.sha256_text(recon)
@@ -516,6 +483,7 @@ def roundtrip_check(
             )
 
     return ok_all, details
+
 
 # -------------------------
 # Manifest
@@ -578,6 +546,7 @@ def build_manifest(file_metas: List[Dict[str, Any]], reverse_map: Dict[str, Any]
     manifest = {"paths": paths, "files": files, "ph": ph_index, "v": 1}
     return manifest
 
+
 # -------------------------
 # Chunks 
 # -------------------------
@@ -590,22 +559,23 @@ def chunk_outputs(
     """
     Divide i testi compressi (llm_ready: abs_path -> contenuto) in chunk testuali.
     Scrive i chunk in OUT_DIR/chunks/<relative_path>/0001.txt ...
-    Restituisce un manifest strutturato come richiesto:
+    Restituisce un manifest strutturato:
     {
       "files": {
         "<relative_path>": {
-          "chunks": ["chunks/<rel_path>/0001.txt", ...],
+          "chunks": ["<rel_path>/0001.txt", ...],   # relativi a chunks_dir
           "sha256_full": "<sha256_del_file_compresso_intero>",
           "chunk_size": <chunk_size_usato>,
           "total_len": <len_caratteri_file_compresso>
         }, ...
       },
+      "chunks_dir": "chunks",
       "v": 1
     }
     - input_root: Path usato per calcolare path relativi; se None, si usa basename.
     """
-    out_manifest: Dict[str, Any] = {"files": {}, "v": 1}
-    chunks_root = Path(output_dir) / "chunks"
+    out_manifest: Dict[str, Any] = {"files": {}, "chunks_dir": "chunks", "v": 1}
+    chunks_root = Path(output_dir) / out_manifest["chunks_dir"]
     io_utils.ensure_dir(chunks_root)
 
     for abs_path, text in llm_ready.items():
@@ -620,7 +590,7 @@ def chunk_outputs(
         else:
             rel_path = abs_p.name
 
-        # directory per i chunk: chunks/<rel_path> (sostituiamo separatori con '/')
+        # directory per i chunk: chunks/<rel_path>
         chunk_dir = chunks_root / Path(rel_path)
         io_utils.ensure_dir(chunk_dir)
 
@@ -633,7 +603,8 @@ def chunk_outputs(
             chunk_name = f"{1:04d}.txt"
             chunk_path = chunk_dir / chunk_name
             io_utils.write_atomic(chunk_path, "")
-            chunks_list.append(str(Path("chunks") / Path(rel_path) / chunk_name).replace("\\", "/"))
+            # store path relative to chunks_dir
+            chunks_list.append(str(Path(rel_path) / chunk_name).replace("\\", "/"))
         else:
             # suddividi in chunk di dimensione chunk_size (caratteri)
             idx = 1
@@ -644,7 +615,7 @@ def chunk_outputs(
                 chunk_name = f"{idx:04d}.txt"
                 chunk_path = chunk_dir / chunk_name
                 io_utils.write_atomic(chunk_path, part)
-                chunks_list.append(str(Path("chunks") / Path(rel_path) / chunk_name).replace("\\", "/"))
+                chunks_list.append(str(Path(rel_path) / chunk_name).replace("\\", "/"))
                 idx += 1
                 start = end
 
@@ -656,6 +627,7 @@ def chunk_outputs(
         }
 
     return out_manifest
+
   
 # -------------------------
 # Stima risparmio
