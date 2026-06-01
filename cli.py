@@ -39,13 +39,13 @@ def parse_args():
     )
     p.add_argument(
         "--placeholder-sub",
-        default="<<s{:03d}>>",
-        help="Formato placeholder per substring (es. '<<s{:03d}>>')",
+        default="§§s{:03d}§§",
+        help="Formato placeholder per substring (es. '§§s{:03d}§§')",
     )
     p.add_argument(
         "--placeholder-blk",
-        default="<<b{:03d}>>",
-        help="Formato placeholder per block (es. '<<b{:03d}>>')",
+        default="§§b{:03d}§§",
+        help="Formato placeholder per block (es. '§§b{:03d}§§')",
     )
     # Chunking options (opzionali)
     p.add_argument(
