@@ -1,92 +1,137 @@
-# Prompt Master 
+# 🔥 PROMPT MASTER — (ottimizzato per Copilot Think Deeper)
 
-Ecco i **prompt ottimali**, già calibrati per Copilot *Smart* e soprattutto *Think Deeper*, seguendo la pipeline più efficiente:
-
-- **Prima** mapping (dizionario)  
-- **Poi** file compressi  
-- **Poi** ricostruzione  
-- **Poi** analisi / modifiche  
-
-Sono scritti per essere **copiati e incollati** senza modifiche.
+Pipeline ottimale: **manifest → mapping → file compressi → ricostruzione → analisi**
 
 ---
 
-## 1) **Inizia sessione**
-Usalo come primo messaggio della chat.
+## **1) Inizio sessione**
+*(Stabilisce il contesto, definisce i ruoli e impedisce a Copilot di anticipare azioni)*
 
-> **PROMPT — Inizio sessione**  
-> Sto per fornirti un dizionario di placeholder e poi uno o più file compressi che li utilizzano.  
-> Il tuo compito sarà:  
-> 1) leggere il mapping come *vocabolario* dei placeholder  
-> 2) applicarlo ai file compressi  
-> 3) ricostruire i file originali in modo esatto  
-> 4) opzionalmente analizzarli o modificarli su mia richiesta  
->  
-> Conferma quando sei pronto a ricevere il mapping.
+```text
+Sto per fornirti:
+1) un manifest dei file (struttura, percorsi, placeholder usati)
+2) un mapping dei placeholder → contenuto
+3) uno o più file compressi che usano quei placeholder
 
----
+Il tuo compito sarà:
+- leggere il manifest come mappa della struttura del progetto
+- leggere il mapping come vocabolario dei placeholder
+- applicare il mapping ai file compressi
+- ricostruire i file originali in modo esatto, senza invenzioni o correzioni implicite
+- opzionalmente analizzarli o modificarli su mia richiesta
 
-## 2) **Incolla mapping_subset.json**
-Dopo la conferma di Copilot, incolla il mapping.
+Nota:
+- Non devi ricostruire nulla finché non te lo chiedo esplicitamente.
+- Ogni fase deve essere confermata prima di procedere alla successiva.
 
-> **PROMPT — Incolla mapping**  
-> Questo è il mapping dei placeholder.  
-> Usalo come dizionario `placeholder → contenuto`.  
-> Non fare ancora nulla: limitati a confermare che il mapping è stato caricato correttamente.  
->  
-> *(qui incolli `mapping_subset.json`)*
+Conferma quando sei pronto a ricevere il manifest.
+```
 
 ---
 
-## 3) **Incolla file compressi**
-Dopo che Copilot conferma di aver caricato il mapping.
+## **2) Incolla manifest.json**
+*(Copilot deve solo caricarlo; non deve interpretarlo né usarlo ancora)*
 
-> **PROMPT — Incolla file compressi**  
-> Ora ti fornisco uno o più file compressi che contengono i placeholder del mapping.  
-> Non ricostruire ancora: conferma solo che li hai ricevuti.  
->  
-> *(incolla i file compressi, uno o più)*
+```text
+Questo è il manifest dei file.
 
----
+Contiene:
+- paths: elenco dei file in ordine deterministico
+- files: per ogni file, indice → sha → placeholder usati
+- ph: metadati dei placeholder (sha, lunghezza)
+- v: versione dello schema
 
-## 4) **Chiedi ricostruzione**
-Quando mapping + file compressi sono caricati.
+Istruzioni:
+- Non usarlo ancora.
+- Non tentare di ricostruire nulla.
+- Limitati a confermare che il manifest è stato caricato correttamente.
 
-> **PROMPT — Ricostruzione**  
-> Ora ricostruisci il file (o i file) sostituendo ogni placeholder con il contenuto corrispondente dal mapping.  
->  
-> Regole:  
-> - nessuna invenzione  
-> - nessuna correzione automatica  
-> - ricostruzione *esatta* del testo originale  
-> - se un placeholder non è nel mapping, segnalalo  
->  
-> Restituisci il file ricostruito.
+(qui incollerò manifest.json)
+```
 
 ---
 
-## 5) **Chiedi analisi o modifiche**
-Dopo che Copilot ha ricostruito correttamente.
+## **3) Incolla mapping_subset.json**
+*(Copilot deve caricare il dizionario dei placeholder, ma non applicarlo ancora)*
 
-> **PROMPT — Analisi o modifiche**  
-> Ora analizza il file ricostruito e produci:  
-> - elenco dei problemi  
-> - suggerimenti  
-> - eventuali modifiche richieste  
->  
-> Oppure, se voglio una trasformazione:  
->  
-> “Applica le seguenti modifiche al file ricostruito: …”  
->  
-> Mantieni sempre la struttura e non inventare contenuti non presenti.
+```text
+Questo è il mapping dei placeholder.
+Usalo come dizionario placeholder → contenuto.
+
+Istruzioni:
+- Non applicare ancora il mapping.
+- Non tentare di ricostruire i file.
+- Conferma solo che il mapping è stato caricato correttamente.
+
+(qui incollerò mapping_subset.json)
+```
 
 ---
 
-## 🎯 Sequenza finale consigliata (ultra‑efficiente)
-1. Inizia sessione  
-2. Incolla mapping  
-3. Incolla file compressi  
-4. Ricostruzione  
-5. Analisi o modifiche
-x
+## **4) Incolla file compressi**
+*(Copilot deve solo riceverli; non deve ancora ricostruire)*
+
+```text
+Ora ti fornisco uno o più file compressi che contengono i placeholder del mapping.
+
+Istruzioni:
+- Non ricostruire ancora.
+- Non applicare il mapping.
+- Conferma solo che hai ricevuto i file compressi.
+
+(qui incollerò i file compressi)
+```
+
+---
+
+## **5) Ricostruzione**
+*(Qui Copilot deve applicare mapping + manifest per ricostruire i file esatti)*
+
+```text
+Ora ricostruisci il file (o i file) sostituendo ogni placeholder con il contenuto corrispondente dal mapping.
+
+Regole di ricostruzione:
+- Nessuna invenzione.
+- Nessuna correzione automatica.
+- Nessuna riformattazione non richiesta.
+- La ricostruzione deve essere esatta, carattere per carattere.
+- Se un placeholder non è presente nel mapping, segnalalo chiaramente.
+
+Restituisci il file ricostruito.
+```
+
+---
+
+## **6) Analisi o modifiche**
+*(Solo dopo la ricostruzione puoi chiedere analisi, refactoring, modifiche, ecc.)*
+
+```text
+Ora analizza il file ricostruito e produci:
+- elenco dei problemi
+- suggerimenti di miglioramento
+- eventuali modifiche richieste
+
+Oppure, se voglio una trasformazione:
+
+"Applica le seguenti modifiche al file ricostruito: …"
+
+Regole:
+- Mantieni sempre la struttura del file.
+- Non inventare contenuti non presenti.
+- Non alterare parti non richieste.
+```
+
+---
+
+# 🎯 Sequenza finale consigliata (ultra‑efficiente)
+
+```text
+1. Inizio sessione
+2. Incolla manifest
+3. Incolla mapping
+4. Incolla file compressi
+5. Ricostruzione
+6. Analisi o modifiche
+```
+
 ---
