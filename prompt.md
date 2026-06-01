@@ -1,4 +1,5 @@
-# 🔥 PROMPT MASTER — (ottimizzato per Copilot Think Deeper)
+# 🔥 PROMPT MASTER
+(ottimizzato per Copilot Think Deeper)
 
 Pipeline ottimale: **manifest → mapping → file compressi → ricostruzione → analisi**
 
