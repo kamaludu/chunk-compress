@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """
 io_utils.py
-Funzioni di I/O sicuro:
-- lettura UTF-8
-- scrittura atomica
-- hashing
-- gestione directory
+Funzioni di I/O sicuro (esteso con helper opzionali per JSON).
 """
 
 import os
@@ -13,23 +9,16 @@ import tempfile
 import hashlib
 from pathlib import Path
 from typing import Union
-
+import json
 
 PathLike = Union[str, Path]
 
 
 def ensure_dir(path: PathLike) -> None:
-    """
-    Crea la directory (e i genitori) se non esistono.
-    Accetta str o Path.
-    """
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
 def read_utf8(path: PathLike) -> str:
-    """
-    Legge un file come UTF-8; solleva eccezione se la decodifica fallisce.
-    """
     p = Path(path)
     with p.open("rb") as f:
         data = f.read()
@@ -37,10 +26,6 @@ def read_utf8(path: PathLike) -> str:
 
 
 def write_atomic(path: Path, data: Union[str, bytes]) -> None:
-    """
-    Scrive in modo atomico: scrive su file temporaneo nella stessa directory,
-    fsynca e poi sostituisce il file di destinazione.
-    """
     ensure_dir(path.parent)
     fd, tmp = tempfile.mkstemp(prefix=path.name, dir=str(path.parent))
     try:
@@ -54,11 +39,9 @@ def write_atomic(path: Path, data: Union[str, bytes]) -> None:
             try:
                 os.fsync(f.fileno())
             except Exception:
-                # fsync può fallire su alcuni filesystem (es. in-memory); ignoriamo l'errore non critico
                 pass
         os.replace(tmp, str(path))
     finally:
-        # nel caso os.replace lanciasse, assicuriamoci di rimuovere il tmp residuo
         if os.path.exists(tmp):
             try:
                 os.remove(tmp)
@@ -67,9 +50,6 @@ def write_atomic(path: Path, data: Union[str, bytes]) -> None:
 
 
 def sha256_file(path: PathLike) -> str:
-    """
-    Calcola sha256 di un file; accetta str o Path.
-    """
     p = Path(path)
     h = hashlib.sha256()
     with p.open("rb") as f:
@@ -79,7 +59,14 @@ def sha256_file(path: PathLike) -> str:
 
 
 def sha256_text(s: str) -> str:
-    """
-    Calcola sha256 di una stringa (UTF-8).
-    """
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+# Minimal helper: scrive JSON in modo atomico (utile per manifest)
+def write_json_atomic(path: Path, obj: object, **json_kwargs) -> None:
+    """
+    Serializza obj in JSON e lo scrive in modo atomico.
+    Usa write_atomic internamente.
+    """
+    data = json.dumps(obj, ensure_ascii=False, **json_kwargs)
+    write_atomic(path, data)
