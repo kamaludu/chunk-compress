@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
 """
 cli.py
-Orchestratore della pipeline:
-- parsing argomenti
-- validazione input
-- chiamate a core.py
-- stampa report
-
-- export mapping_subset.json in formato LLM-ready (solo placeholder -> {content, sha256, length})
-- export manifest compatto (paths/files/ph/v)
-- quando si costruisce la lista di file per l'export non si usa .resolve() (evita path assoluti)
-- comportamento LLM-ready di default per mapping_subset.json quando si usa --export-mapping-for
+Orchestratore della pipeline (aggiornato con chunking opzionale).
 """
 
 import argparse
@@ -56,6 +47,18 @@ def parse_args():
         default="<<b{:03d}>>",
         help="Formato placeholder per block (es. '<<b{:03d}>>')",
     )
+    # Chunking options (opzionali)
+    p.add_argument(
+        "--chunk-output",
+        action="store_true",
+        help="Opzionale: genera chunk dei file compressi in OUT_DIR/chunks/",
+    )
+    p.add_argument(
+        "--chunk-size",
+        type=int,
+        default=16000,
+        help="Dimensione massima (caratteri) per chunk quando --chunk-output è attivo (default 16000)",
+    )
     return p.parse_args()
 
 
@@ -86,7 +89,7 @@ def main():
             B_max_lines=args.B_max_lines,
         )
 
-        # 4) select (passiamo soglia e formati placeholder)
+        # 4) select
         replacements = core.select_replacements(
             candidates,
             placeholder_fmt_sub=args.placeholder_sub,
@@ -100,43 +103,30 @@ def main():
         # 6) write outputs (transformed files + reverse_map completo)
         _write_outputs(llm_ready, reverse_map, output_dir, input_path)
 
-        # 6b) export reduced mapping per file (LLM-ready) -- comportamento di default quando richiesto
+        # 6b) export reduced mapping per file (LLM-ready)
         if getattr(args, "export_mapping_for", ""):
             files = [s.strip() for s in args.export_mapping_for.split(",") if s.strip()]
             if files:
-                # costruiamo una lista di riferimenti ai file senza risolvere a path assoluti
-                # includiamo sia il percorso relativo rispetto a output_dir sia rispetto a input_path
                 ref_files = []
                 for f in files:
                     try:
-                        # riferimento relativo in output (come apparirà nei file compressi)
                         ref_files.append(str(Path(f).as_posix()))
                     except Exception:
                         pass
                     try:
-                        # riferimento relativo rispetto all'input root (se il file esiste lì)
                         ref_files.append(str((Path(f)).as_posix()))
                     except Exception:
                         pass
-
-                # deduplica mantenendo ordine
                 ref_files = list(dict.fromkeys(ref_files))
-
-                # chiediamo a core di estrarre il subset; ci aspettiamo un dict placeholder -> entry
                 subset = core.extract_mapping_for_files(reverse_map, ref_files)
-
-                # costruiamo la versione LLM-ready: solo placeholder -> {content, sha256, length}
                 llm_subset = {"placeholders": {}}
                 for ph, entry in (subset or {}).items():
-                    # entry potrebbe essere una struttura complessa; estraiamo i campi utili
                     content = entry.get("content") if isinstance(entry, dict) else None
                     if content is None:
-                        # se entry è una lista di occorrenze, recuperiamo il contenuto dal reverse_map principale
                         rm_entry = reverse_map.get("placeholders", {}).get(ph) if isinstance(reverse_map, dict) else None
                         if isinstance(rm_entry, dict):
                             content = rm_entry.get("content")
                     if content is None:
-                        # skip se non troviamo contenuto
                         continue
                     sha = entry.get("sha256") if isinstance(entry, dict) else reverse_map.get("placeholders", {}).get(ph, {}).get("sha256", "")
                     length = entry.get("length") if isinstance(entry, dict) else len(content)
@@ -164,6 +154,21 @@ def main():
                 print(f"Manifest scritto in: {output_dir / 'manifest.json'}")
             except Exception as e:
                 print(f"Errore durante la generazione del manifest: {e}", file=sys.stderr)
+
+        # 6d) optional: chunk outputs (DOPO la scrittura normale)
+        if getattr(args, "chunk_output", False):
+            try:
+                chunks_manifest = core.chunk_outputs(llm_ready, output_dir, args.chunk_size, input_path)
+                # serializziamo il manifest dei chunk in OUT_DIR/chunks/manifest.json
+                chunks_dir = output_dir / "chunks"
+                io_utils.ensure_dir(chunks_dir)
+                io_utils.write_atomic(
+                    chunks_dir / "manifest.json",
+                    json.dumps(chunks_manifest, ensure_ascii=False, indent=2),
+                )
+                print(f"Chunks scritti in: {chunks_dir} (manifest.json incluso)")
+            except Exception as e:
+                print(f"Errore durante la generazione dei chunk: {e}", file=sys.stderr)
 
         # 7) roundtrip
         if args.verify_roundtrip:
@@ -194,7 +199,6 @@ def _write_outputs(llm_ready, reverse_map, output_dir: Path, input_root: Path):
         try:
             rel = abs_p.relative_to(input_root)
         except Exception:
-            # se non è sotto input_root, usiamo il nome file o il percorso relativo fornito
             rel = Path(abs_p.name)
 
         out_path = output_dir / rel
