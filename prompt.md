@@ -1,3 +1,5 @@
+# Prompt Master 
+
 Ecco i **prompt ottimali**, già calibrati per Copilot *Smart* e soprattutto *Think Deeper*, seguendo la pipeline più efficiente:
 
 - **Prima** mapping (dizionario)  
