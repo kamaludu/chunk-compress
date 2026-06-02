@@ -22,7 +22,7 @@ io_utils.py
 ## 2. Requisiti
 - Python 3.8+
 - Nessuna libreria esterna
-- Funziona su Linux, macOS, Termux/Android
+- Funziona su: qualsiasi shell su cui gira python 
 
 ## 3. Preparazione input
 Puoi fornire:
