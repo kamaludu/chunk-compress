@@ -224,7 +224,6 @@ out/
 | **--placeholder-blk** | stringa formato | Formato placeholder per block. | più corto → output più piccolo | `--placeholder-blk "§§b{:03d}§§"` |
 | **--placeholder-sub** | stringa formato | Formato placeholder per substring. | più corto → output più piccolo | `--placeholder-sub "§§s{:03d}§§"` |
 | **--verify-roundtrip** | flag | Verifica roundtrip e fallisce se non coincide. | flag booleano | `--verify-roundtrip` |
-```
 
 ---
 
@@ -303,10 +302,8 @@ python3 cli.py -i ../directory/file.xx -o ./out --export-manifest
 ## 16. Dove trovare il manifest e cosa contiene
 
 ### **manifest.json** (struttura originale)
-Percorso:
-```
-OUT_DIR/manifest.json
-```
+Percorso:  
+`OUT_DIR/manifest.json`
 
 Contiene:
 - `paths`: elenco file
@@ -315,10 +312,8 @@ Contiene:
 - `v`: versione schema
 
 ### **chunks/manifest.json** (solo se chunking attivo)
-Percorso:
-```
-OUT_DIR/chunks/manifest.json
-```
+Percorso:  
+`OUT_DIR/chunks/manifest.json`
 
 Contiene:
 - elenco chunk
