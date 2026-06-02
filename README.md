@@ -335,3 +335,23 @@ Contiene:
 - I chunk sono utili per file molto grandi o per chat con limiti di input. 
 
 ---
+
+## Licenza
+
+Compressore locale LLM‑ready è distribuito sotto licenza **GNU GPL v3**.  
+Vedi **[LICENSE](LICENSE)** per il testo completo.
+
+---
+
+## Note
+
+Parte del codice e della documentazione è stata redatta con l’assistenza di strumenti di IA.  
+L’architettura e le decisioni tecniche restano curate manualmente.
+
+---
+
+## Contatti
+
+- Autore: Cristian Evangelisti  
+- Email: opensource​@​cevangel.​anonaddy.​me  
+- Repository:  https://github.com/kamaludu/chunk-compress
