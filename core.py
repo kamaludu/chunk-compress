@@ -38,7 +38,24 @@ import io_utils
 # -------------------------
 # Scansione e caricamento
 # -------------------------
-def scan_files(input_path: str) -> List[Dict[str, Any]]:
+from typing import List, Dict, Any
+from pathlib import Path
+import io_utils
+
+def scan_files(input_path: str, exclude_pointless: bool = True) -> List[Dict[str, Any]]:
+    """
+    Scans files under input_path and returns file_metas.
+    By default excludes common binary/unnecessary extensions (exclude_pointless=True).
+    Pass exclude_pointless=False to disable exclusion.
+    """
+    # estensioni da escludere (lowercase, con punto)
+    DEFAULT_EXCLUDE_EXTS = {
+        ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".ico", ".ttf", ".woff", ".woff2",
+        ".zip", ".tar", ".gz", ".exe", ".dll", ".so", ".bin", ".class", ".o", ".a", ".jar",
+        ".mp3", ".mp4", ".mov", ".avi", ".webm", ".ogg", ".wav", ".7z", ".rar", ".iso",
+        ".db", ".sqlite", ".bak", ".swp", ".tmp", ".lock"
+    }
+
     p = Path(input_path)
     files: List[Path] = []
     if p.is_dir():
@@ -62,8 +79,13 @@ def scan_files(input_path: str) -> List[Dict[str, Any]]:
     metas: List[Dict[str, Any]] = []
     for f in files:
         try:
+            # se l'esclusione è attiva, salta le estensioni nella lista
+            if exclude_pointless:
+                if f.suffix.lower() in DEFAULT_EXCLUDE_EXTS:
+                    continue
             sha = io_utils.sha256_file(f)
         except Exception:
+            # ignora file che non si possono leggere o hashare
             continue
         metas.append(
             {
