@@ -91,6 +91,41 @@ def load_contents(file_metas: List[Dict[str, Any]]) -> Dict[str, str]:
     return contents
 
 
+def strip_empty_lines_by_extension(contents: Dict[str, str],
+                                   preserve_exts=None) -> Dict[str, str]:
+    """
+    Rimuove righe vuote (solo spazi/tab) da tutti i testi in `contents`
+    eccetto quelli con estensioni in `preserve_exts`.
+
+    Args:
+      contents: dict[path_str -> text]
+      preserve_exts: set di estensioni lowercase con punto (es. {'.md', '.txt'})
+
+    Returns:
+      new_contents: dict con testi modificati (o identici se preservati)
+    """
+    if preserve_exts is None:
+        preserve_exts = {".md", ".txt", ".rst", ".html", ".tex", ".adoc", ".org"}
+
+    new: Dict[str, str] = {}
+    for path, text in contents.items():
+        ext = Path(path).suffix.lower()
+        # preserva se estensione nella whitelist
+        if ext in preserve_exts:
+            new[path] = text
+            continue
+
+        # rimuovi righe vuote (linee che contengono solo spazi/tab)
+        lines = text.splitlines(keepends=True)
+        kept = []
+        for ln in lines:
+            if ln.strip() == "":
+                # scarta la linea vuota
+                continue
+            kept.append(ln)
+        new[path] = "".join(kept)
+    return new
+
 # -------------------------
 # Analisi ripetizioni
 # -------------------------
