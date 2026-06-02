@@ -137,41 +137,23 @@ Stampato a terminale:
 
 ---
 
-**Preset completo:**
+**Preset completo:** (aggressivo)
 
 ```sh
 python3 cli.py \
   --input ../groqbash/groqbash \                # obbligatorio
   --output ./out \                              # opzionale (default: ./compressed_output)
-  --L_min 30 \                                   # opzionale (default: 64)
-  --N_min 2 \                                    # opzionale (default: 2)
-  --B_min_lines 3 \                              # opzionale (default: 5)
-  --B_max_lines 10 \                             # opzionale (default: 20)
-  --min_total_saving 20 \                        # opzionale (default: 100)
-  --placeholder-sub "§§s{:03d}§§" \              # opzionale (default: §§s{:03d}§§)
-  --placeholder-blk "§§b{:03d}§§" \              # opzionale (default: §§b{:03d}§§)
-  --export-manifest \                            # opzionale (manifest basato su input originale)
-  --verify-roundtrip \                           # opzionale (consigliato)
-  --chunk-output \                               # opzionale (genera chunk)
-  --chunk-size 18000                             # opzionale (default: 16000)
-```
-
----
-
-**Preset aggressivo**
-
-```sh
-python3 cli.py \
-  --input ../groqbash/groqbash \
-  --output ./out \
-  --L_min 24 \
-  --N_min 2 \
-  --B_min_lines 3 \
-  --B_max_lines 10 \
-  --min_total_saving 20 \
-  --placeholder-sub "§§s{:03d}§§" \
-  --placeholder-blk "§§b{:03d}§§" \
-  --export-mapping-for groqbash
+  --L_min 30 \                                  # opzionale (default: 64)
+  --N_min 2 \                                   # opzionale (default: 2)
+  --B_min_lines 3 \                             # opzionale (default: 5)
+  --B_max_lines 10 \                            # opzionale (default: 20)
+  --min_total_saving 20 \                       # opzionale (default: 100)
+  --placeholder-sub "§§s{:03d}§§" \             # opzionale (default: §§s{:03d}§§)
+  --placeholder-blk "§§b{:03d}§§" \             # opzionale (default: §§b{:03d}§§)
+  --export-manifest \                           # opzionale (manifest basato su input originale)
+  --verify-roundtrip \                          # opzionale (consigliato)
+  --chunk-output \                              # opzionale (genera chunk)
+  --chunk-size 18000                            # opzionale (default: 16000)
 ```
 
 ---
