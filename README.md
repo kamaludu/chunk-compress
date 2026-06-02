@@ -162,7 +162,6 @@ python3 cli.py \
 ```sh
 python3 cli.py \
   --input ../directory/file.sh \
-  --output ./out \
   --L_min 32 \
   --N_min 2 \
   --B_min_lines 3 \
