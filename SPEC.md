@@ -1,164 +1,223 @@
-### Overview
-Specifica completa e rigorosa per **core.py**. Scopo: implementare la pipeline minima che legge file testuali e di codice, individua ripetizioni esatte, applica placeholder testuali reversibili e produce `llm_ready` + `reverse_map` + verifica roundtrip. Nessun parsing profondo, nessun tokenizer, solo confronto testuale e hashing.
+## SPEC tecnica per core.py
+
+Specifica completa e rigorosa per **core.py**, per sviluppo, review e test.
 
 ---
 
-### Funzioni pubbliche e interfacce
-Ogni funzione è descritta con **input**, **output**, e comportamento deterministico.
+### 1. Scelte fondamentali e convenzioni globali
+- **Offset e posizioni**: tutti gli offset `start` e `end` sono **in byte** rispetto al file originale. Se utile per debugging, includere anche `start_char`/`end_char`, ma la logica interna e i confronti usano **solo byte**.
+- **Hashing**: tutti gli SHA usati per confronto sono **SHA256 sui bytes** del file o del contenuto.
+- **Encoding**: i file vengono letti in **binary**. Se decodificati in UTF‑8 per operazioni testuali, mantenere anche la rappresentazione `bytes` per tutte le operazioni di offset e hashing.
+- **Determinismo**: tutte le scelte (ordinamenti, tie‑breaker, assegnazione ID) devono essere riproducibili dallo stesso input e parametri.
+- **Percorsi relativi**: tutti i percorsi salvati in output (`reverse_map`, `blocks/`) sono **relativi a OUT_DIR**.
+
+---
+
+### 2. Interfacce pubbliche e tipi di ritorno
 
 #### `scan_files(input_path) -> List[FileMeta]`
 - **Input**: `input_path` string (directory o file-lista).
-- **Output**: lista di `FileMeta` oggetti:  
-  - **path** string assoluto, **size** int bytes, **sha256** hex string.
-- **Comportamento**:  
-  - Se `input_path` è directory, elenca ricorsivamente file regolari ordinati alfabeticamente.  
-  - Se è file-lista, legge linee non vuote come percorsi.  
-  - Ignora file non esistenti o non leggibili; segnala via eccezione solo se nessun file valido trovato.  
-  - Calcola `sha256` leggendo in streaming.
-
-#### `load_contents(file_metas) -> Dict[path, text]`
-- **Input**: lista `FileMeta`.
-- **Output**: dizionario mapping `path` → `text` (UTF-8).
-- **Comportamento**:  
-  - Legge ogni file in modalità binaria e decodifica UTF-8; su errore di decodifica fallisce per quel file e lo segnala nel risultato (entry mancante + warning).  
-  - Non modifica file originali.
-
-#### `find_repetitions(contents, L_min, N_min, B_min_lines, B_max_lines) -> List[Candidate]`
-- **Input**: `contents` dict, parametri interi.  
-- **Output**: lista di `Candidate` con campi: **id_hash**, **type** ("substring"|"block"), **content**, **occurrences** list di `{path,start,end}`.
-- **Comportamento**: due fasi separate e non intrecciate:
-  - **Substring phase**: usa n‑gram hashing su finestre fisse `L_min` con rolling hash per efficienza; raggruppa occorrenze con stesso hash; per ogni gruppo con occorrenze ≥ `N_min` estende greedy i confini a sinistra e destra confermando uguaglianza carattere per carattere su tutte le occorrenze; produce candidate solo se lunghezza finale ≥ `L_min`.
-  - **Block phase**: split per linee; per ogni file scorre blocchi di dimensione fissa o di poche dimensioni predefinite (es. 5, 10, 20 linee) per evitare esplosione; calcola hash del blocco; raggruppa occorrenze con stesso hash; produce candidate se occorrenze ≥ 2.
-- **Vincoli**: non considera estensioni che attraversano confini di file; non tenta fuzzy matching.
-
-#### `select_replacements(candidates, placeholder_fmt_sub, placeholder_fmt_blk, min_total_saving) -> List[Replacement]`
-- **Input**: lista `Candidate`, formati placeholder, soglia risparmio.
-- **Output**: lista `Replacement` con campi: **id** (es. `S:001`), **type**, **content**, **occurrences** (posizioni), **placeholder** string.
-- **Comportamento**:  
-  - Calcola risparmio stimato per ogni candidate: `(len(content) - len(placeholder)) * (occurrences_count - 1)`.  
-  - Ordina candidati per risparmio decrescente; seleziona greedily evitando sovrapposizioni per file.  
-  - Risolve conflitti scegliendo il candidato con risparmio maggiore; in caso di pareggio sceglie il contenuto più lungo; assegnazione ID deterministica (ordinamento alfabetico dei path delle occorrenze, poi contatore).  
-  - Filtra i candidati con risparmio totale < `min_total_saving`.
-
-#### `apply_placeholders(contents, replacements) -> (llm_ready, reverse_map)`
-- **Input**: `contents` dict, `replacements` list.
-- **Output**:  
-  - `llm_ready`: dict `path` → testo trasformato con placeholder.  
-  - `reverse_map`: struttura JSON serializzabile (vedi sezione Strutture dati).
-- **Comportamento**:  
-  - Per ogni file costruisce lista di intervalli approvati, ordina per `start`, verifica non sovrapposizione; ricostruisce testo concatenando segmenti originali e placeholder.  
-  - Non usa `str.replace` globale; usa posizioni per sostituzione atomica.  
-  - Popola `reverse_map` con mapping placeholder → contenuto originale e lista occorrenze.
-
-#### `roundtrip_check(file_metas, llm_ready, reverse_map) -> (bool, List[str])`
-- **Input**: `file_metas` originali, `llm_ready`, `reverse_map`.
-- **Output**: boolean `ok`, lista `details` con mismatch o errori.
-- **Comportamento**:  
-  - Per ogni file in `llm_ready` ricostruisce il testo sostituendo ogni placeholder con il contenuto corrispondente usando le posizioni registrate nel `reverse_map` (non con replace globale).  
-  - Calcola sha256 del testo ricostruito e confronta con `sha256` in `file_metas`.  
-  - Restituisce `ok = True` solo se tutti i file corrispondono; altrimenti `ok = False` e `details` contiene descrizioni deterministiche dei mismatch.
-
----
-
-### Strutture dati interne e formato reverse_map
-Definire formati JSON semplici, deterministici e verificabili.
-
-#### FileMeta
+- **Output**: `List[FileMeta]`.
+- **Comportamento**:
+  - Se `input_path` è directory: elenco ricorsivo di file regolari, ordinati alfabeticamente per percorso relativo.
+  - Se file-lista: leggere linee non vuote, ignorare commenti `#`.
+  - Ignora file non esistenti o non leggibili; se nessun file valido trovato → solleva `NoFilesFoundError`.
+  - Calcola `size` in bytes e `sha256` leggendo in streaming.
+- **FileMeta schema**:
 ```json
 { "path": "/abs/path", "size": 1234, "sha256": "hex" }
 ```
 
-#### Candidate
+#### `load_contents(file_metas) -> Dict[path, ContentBlob]`
+- **Input**: lista `FileMeta`.
+- **Output**: dict `path` → `ContentBlob`.
+- **ContentBlob**:
 ```json
-{ "id_hash": "sha256(content)", "type": "substring"|"block", "content": "exact text", "occurrences": [{"path": "...", "start": int, "end": int}] }
+{
+  "bytes": "<raw bytes>",
+  "text": "<utf8 string or null>",
+  "line_index": [{"line_start_byte": int, "line_end_byte": int}],
+  "error": null
+}
 ```
+- **Comportamento**:
+  - Legge in binary; tenta decodifica UTF‑8. Se decodifica fallisce, `text` = `null`, `error` = descrizione; `bytes` sempre presente.
+  - Costruisce `line_index` per mapping byte→linea.
+  - Non modifica file originali.
 
-#### Replacement
+#### `find_repetitions(contents, L_min, N_min, B_min_lines, B_max_lines, L_max) -> List[Candidate]`
+- **Input**: `contents` dict, parametri interi.
+- **Output**: lista `Candidate`.
+- **Candidate schema**:
 ```json
-{ "id": "S:001", "type": "substring"|"block", "placeholder": "<<S:001>>", "content": "exact text", "occurrences": [{"path":"...","start":int,"end":int}] }
+{
+  "id_hash": "sha256(content_bytes)",
+  "type": "substring"|"block",
+  "content_bytes": "<bytes>",
+  "occurrences": [{"path": "...", "start_byte": int, "end_byte": int}]
+}
 ```
+- **Comportamento**:
+  - **Substring phase**: rolling hash su finestre `L_min` (Rabin‑Karp 64‑bit + verifica byte‑wise; opzionale doppio hash). Raggruppa hash → occorrenze; filtra gruppi con occorrenze ≥ `N_min`; per ogni gruppo estende greedy sinistra/destra fino a mismatch o `L_max`.
+  - **Block phase**: split per linee; per dimensioni fisse `{B_min_lines, mid, B_max_lines}` (es. `{5,10,20}`) scorre blocchi contigui, calcola hash del blocco bytes, raggruppa e produce candidate con occorrenze ≥ 2.
+  - **Collision handling**: prima di accettare occorrenze uguali, verificare uguaglianza byte‑wise.
+  - **Vincoli**: non attraversa file boundary; nessun fuzzy matching.
 
-#### reverse_map JSON schema top level
-- **placeholders**: object mapping `id` → `{ "type", "content" or "content_file", "sha256", "length", "occurrences": [...] }`
-- **files**: optional manifest with original file metas
-- **metadata**: tool version, parameters, timestamp
+#### `select_replacements(candidates, placeholder_fmt_sub, placeholder_fmt_blk, min_total_saving) -> List[Replacement]`
+- **Input**: `candidates` list, placeholder formats (es. `"§§s{:03d}§§"`), `min_total_saving` int.
+- **Output**: lista `Replacement`.
+- **Replacement schema**:
+```json
+{
+  "id": "S:001",
+  "type": "substring"|"block",
+  "placeholder": "§§s001§§",
+  "content_bytes": "<bytes>",
+  "occurrences": [{"path":"...","start_byte":int,"end_byte":int}],
+  "estimated_saving": int
+}
+```
+- **Comportamento**:
+  - Calcola `estimated_saving = (len(content_bytes) - len(placeholder_bytes)) * (occurrences_count - 1)`.
+  - Ordina candidati per `estimated_saving` decrescente.
+  - Seleziona greedy: per ogni candidato verifica che **nessuna** delle sue occorrenze si sovrapponga byte‑wise a intervalli già occupati; se ok, seleziona e marca intervalli.
+  - **Tie‑breaker deterministico**: ordina per `(estimated_saving desc, len(content_bytes) desc, sha256(content_bytes) asc, occurrences_paths_sorted asc)`.
+  - Assegna ID in modo deterministico: numerazione sequenziale separata per substring e block dopo ordinamento tie‑breaker.
+  - Filtra candidati con `estimated_saving < min_total_saving`.
 
-Esempio sintetico
+#### `apply_placeholders(contents, replacements, max_json_inline, blocks_dir) -> (llm_ready, reverse_map)`
+- **Input**: `contents` dict, `replacements` list, `max_json_inline` int, `blocks_dir` path relative a OUT_DIR.
+- **Output**:
+  - `llm_ready`: dict `path` → bytes del file trasformato (usare bytes per scrittura).
+  - `reverse_map`: struttura JSON serializzabile (vedi schema).
+- **Comportamento**:
+  - Per ogni file costruisce lista di intervalli approvati, ordina per `start_byte`, verifica non sovrapposizione; ricostruisce bytes concatenando segmenti originali e placeholder bytes.
+  - Non usare `str.replace`; usare slicing byte‑wise.
+  - Popola `reverse_map.placeholders` con `content` inline se `len(content_bytes) <= max_json_inline`, altrimenti salva in `blocks_dir/B_<id>.bin` e usa `content_file` con percorso relativo.
+  - `reverse_map` include `sha256` e `length` per ogni placeholder e lista occorrenze con `start_byte`/`end_byte`.
+
+#### `roundtrip_check(file_metas, llm_ready, reverse_map) -> (bool, List[str])`
+- **Input**: `file_metas`, `llm_ready`, `reverse_map`.
+- **Output**: `(ok: bool, details: List[str])`.
+- **Comportamento**:
+  - Per ogni file in `llm_ready` ricostruisce bytes sostituendo placeholder con `content_bytes` usando le occorrenze registrate (non replace globale).
+  - Calcola `sha256` del bytes ricostruito e confronta con `file_metas.sha256`.
+  - Se mismatch, aggiunge dettaglio deterministico: `"{path}: mismatch at offset {first_mismatch_offset}, expected_sha={expected}, got_sha={got}, placeholders_involved=[...]"`.
+  - `ok = True` solo se tutti i file corrispondono.
+
+---
+
+### 3. Formati JSON e file ausiliari
+
+#### reverse_map.json schema esemplificativo
 ```json
 {
   "placeholders": {
     "S:001": {
       "type": "substring",
-      "content": "function foo() { return 1; }",
-      "sha256": "abc...",
-      "length": 24,
-      "occurrences": [{"path":"/p/a.js","start":120,"end":144}]
+      "content": "base64 or omitted",
+      "content_file": "blocks/B_S_001.bin",
+      "sha256": "hex",
+      "length": 123,
+      "occurrences": [{"path": "src/a.py", "start_byte": 120, "end_byte": 243}]
     }
   },
-  "metadata": { "L_min":64, "N_min":2, "created_at":"ISO8601" }
+  "files": {
+    "src/a.py": {"sha256": "hex", "size": 1234}
+  },
+  "metadata": {
+    "tool_version": "1.0.0",
+    "params": {"L_min":64,"N_min":2,"B_min_lines":5,"B_max_lines":20,"L_max":2000,"min_total_saving":100},
+    "created_at": "ISO8601"
+  }
 }
 ```
-Nota: se `content` supera soglia `max_json_inline` il campo diventa `content_file` con percorso relativo a `blocks/B_001.txt`.
+- **Note**:
+  - `content` è presente solo se `length <= max_json_inline` e può essere base64‑encoded per sicurezza; altrimenti `content_file` è obbligatorio.
+  - `blocks/` directory: `OUT_DIR/blocks/B_<id>.bin`.
+
+#### chunks/manifest.json schema esemplificativo
+```json
+{
+  "chunks": {
+    "chunk_0001": {"sha256":"hex","length":12345},
+    "chunk_0002": {"sha256":"hex","length":54321}
+  },
+  "files": {
+    "src/large.py": {"chunks":["chunk_0001","chunk_0002"], "sha256": "hex_optional"}
+  },
+  "metadata": {"tool_version":"1.0.0","created_at":"ISO8601"}
+}
+```
+- **Comportamento**: `sha256` per file è opzionale; se presente va verificato durante ricostruzione.
 
 ---
 
-### Algoritmi dettagliati e complessità
-Fornire regole chiare per implementazione efficiente e deterministica.
+### 4. Algoritmi, limiti e complessità
 
-#### Substring detection algorithm
-- **Step 1**: per ogni file calcola rolling hash su finestre di lunghezza `L_min` (Rabin-Karp con base e modulo a 64-bit o doppio hash per collisione ridotta). Memorizza mappa `hash -> list[(path, offset)]`.
-- **Step 2**: filtra hash con lista di occorrenze ≥ `N_min`.
-- **Step 3**: per ogni gruppo seleziona la prima occorrenza come seed; per ogni occorrenza estende i confini:
-  - estensione a destra: confronta carattere per carattere tra occorrenze e seed fino a mismatch; stessa per sinistra.
-  - l’estensione è limitata da lunghezza massima ragionevole per evitare O(n²); si può imporre `L_max`.
-- **Step 4**: calcola SHA256 del testo esteso per identificatore unico; produce `Candidate`.
-- **Complessità**: rolling hash O(total_chars); estensioni costose solo per gruppi con occorrenze multiple; limite `L_max` mantiene costi sotto controllo.
+#### Substring detection
+- **Rolling hash**: Rabin‑Karp 64‑bit + verifica byte‑wise; opzionale doppio hash per collisioni.
+- **Fasi**:
+  1. Calcola rolling hash su ogni file per finestre `L_min`.
+  2. Raggruppa hash → occorrenze; filtra gruppi con occorrenze ≥ `N_min`.
+  3. Per ogni gruppo, prendi seed (prima occorrenza deterministica) e estendi greedy sinistra/destra byte‑wise fino a mismatch o `L_max`.
+  4. Calcola `sha256(content_bytes)` e crea `Candidate`.
+- **Limiti**: `L_max` default 2000; estensioni limitate per evitare O(n²).
 
-#### Block detection algorithm
-- **Approccio**: non esplorare tutte le dimensioni; usare set di dimensioni fisse es. `{5,10,20}` linee.
-- **Step**: per ogni file e per ogni dimensione scorre blocchi contigui, calcola hash del blocco, raggruppa occorrenze; produce candidate se occorrenze ≥ 2.
+#### Block detection
+- **Dimensioni fisse**: usare set predefinito `{B_min_lines, mid, B_max_lines}`.
+- **Fasi**:
+  1. Per ogni file e dimensione scorre blocchi contigui (sliding window per linee).
+  2. Calcola hash del blocco bytes; raggruppa e produce candidate con occorrenze ≥ 2.
 - **Complessità**: O(total_lines × number_of_sizes).
 
 #### Selection and conflict resolution
-- **Metric**: risparmio totale stimato.  
-- **Greedy selection**: ordina candidati per risparmio decrescente; per ogni candidato verifica che nessuna delle sue occorrenze si sovrapponga a intervalli già occupati; se ok, seleziona e marca intervalli occupati.  
-- **Determinismo**: tie-breaker basato su `sha256(content)` e lista occorrenze ordinata.
+- **Metric**: `estimated_saving`.
+- **Greedy**: ordina candidati per tie‑breaker definito; seleziona se nessuna occorrenza sovrappone intervalli già marcati.
+- **Sovrapposizioni**: rifiuta candidati che causano sovrapposizioni byte‑wise; i candidati rifiutati non vengono ripescati.
 
 ---
 
-### Regole conservative per sicurezza e integrità
-Minimo indispensabile per evitare corruzione del codice.
-
-- **Non sostituire** se una occorrenza è interamente contenuta all’interno di una string literal o regex non verificabile senza parsing. Heuristica minima:  
-  - se il file ha estensione di codice conosciuta, e la occorrenza è su una singola linea che contiene un numero dispari di delimitatori di stringa (`"` o `'`) o delimitatori di regex (`/`), **escludere** quella occorrenza.  
-- **Non sostituire** se la substring contiene template markers `{{`, `}}`, `${` o sequenze di escape `\n` che appaiono in contesti di template.  
-- **Non modificare** indentazione o line endings: placeholder sostituisce esattamente la sequenza di caratteri trovata.  
-- **Fallback**: se una occorrenza è esclusa, il candidato può ancora essere selezionato se ha almeno `N_min` occorrenze non escluse.
-
----
-
-### Roundtrip verification e garanzie
-Procedure per garantire reversibilità e non perdita.
-
-- **Roundtrip ricostruzione**: usare le posizioni registrate in `reverse_map` per reinserire i contenuti originali nelle stringhe `llm_ready`. Non usare sostituzioni testuali globali.  
-- **Checksum**: confrontare `sha256` ricostruito con `sha256` originale per ogni file.  
-- **Fallimento**: se mismatch, abortare promozione dell’output e scrivere log dettagliato con: file path, placeholder id coinvolti, differenze di lunghezza e primo offset di mismatch.  
-- **Atomic write**: scrivere output in directory temporanea e rinominare solo se tutti i check passano.
+### 5. Regole conservative e sicurezza
+- **Heuristica string literal/regex**:
+  - Implementare `is_in_string_like_context(path, start_byte, end_byte, content_blob) -> bool`.
+  - Regole minime: se file estensione è codice noto, e la linea contiene un numero dispari di delimitatori `"` o `'` tra inizio linea e `start_byte`, considerare occorrenza in string literal e **escluderla**.
+  - Per regex in linguaggi che usano `/.../`, applicare analoga heuristica.
+- **Template markers**: escludere occorrenze che contengono `{{`, `}}`, `${` o sequenze di escape tipiche `\n`, `\t` se appaiono in contesto template.
+- **Non alterare** indentazione o line endings; placeholder sostituisce esattamente la sequenza di bytes trovata.
+- **Fallback**: un candidato è valido se ha almeno `N_min` occorrenze non escluse.
 
 ---
 
-### Output attesi e parametri minimi
-- **llm_ready**: directory con file trasformati, stessa struttura relativa rispetto alla directory di input.  
-- **reverse_map.json**: JSON con `placeholders`, `metadata`, e riferimento a eventuali `blocks/` file.  
-- **report**: oggetto o testo con `orig_total_chars`, `new_total_chars`, `saved_chars`, `saved_pct`, `num_placeholders`, `roundtrip_ok`.
-
-Parametri consigliati iniziali: `L_min = 64`, `N_min = 2`, block sizes `{5,10,20}`, `L_max = 2000`, `min_total_saving = 100`.
+### 6. Operazioni I/O, atomicità, logging e temp
+- **Atomic write**:
+  - Scrivere output in `OUT_DIR/.tmp_<pid>_<ts>/`.
+  - Solo se tutti i check passano, rinominare atomically `.tmp_...` → `OUT_DIR`.
+- **Temp cleanup**: su crash, lasciare `.tmp_...` per debug e fornire comando `--cleanup-temp`.
+- **Logging**:
+  - Livelli: `ERROR`, `WARN`, `INFO`, `DEBUG`.
+  - Messaggi standard per: file saltati, placeholder creati, candidate rifiutati per sovrapposizione, roundtrip mismatch.
+- **Parallelismo**:
+  - Consentito per file indipendenti nelle fasi di hashing e block detection; sincronizzare accesso alla mappa globale hash.
+- **Memory**:
+  - Raccomandare streaming per file > 100MB; limitare buffer per rolling hash.
 
 ---
 
-### Note implementative e test minimo
-- **Determinismo**: tutte le scelte devono essere riproducibili dallo stesso input e parametri.  
-- **Test minimo**: file solo testo con paragrafi ripetuti; file codice con funzioni identiche; file con string literal che contengono ripetizioni per verificare esclusione.  
-- **Performance**: implementare rolling hash e limitare estensioni con `L_max`; usare streaming per file grandi.
+### 7. Parametri consigliati, test e checklist di rilascio
 
----
+#### Parametri consigliati iniziali
+- `L_min = 64`
+- `N_min = 2`
+- `block sizes = {5,10,20}`
+- `L_max = 2000`
+- `min_total_saving = 100`
+- `max_json_inline = 4096` bytes
+- `blocks_dir = "blocks"`
+
+#### Test minimo obbligatorio
+- **Test A**: due file identici con paragrafo ripetuto → placeholder creato, roundtrip OK.
+- **Test B**: file codice con string literal ripetuta → string literal esclusa dalla sostituzione.
+- **Test C**: sovrapposizione candidate → greedy selection e tie‑break deterministico.
+- **Test D**: file non UTF‑8 → `text=null`, `bytes` usati, comportamento configurabile.
+- **Test E**: chunking end‑to‑end con `OUT_DIR/chunks/manifest.json` e ricostruzione da chunk.
