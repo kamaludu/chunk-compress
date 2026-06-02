@@ -80,7 +80,9 @@ def main():
 
     try:
         # 1) scan
-        file_metas = core.scan_files(str(input_path))
+        # comportamento di default: escludi le estensioni binarie o inutili; se --include-pointless è passato, non escludere
+        file_metas = core.scan_files(str(input_path), exclude_pointless=not getattr(args, "include_pointless", False))
+
 
         # 2) load
         contents = core.load_contents(file_metas)
