@@ -59,6 +59,11 @@ def parse_args():
         default=16000,
         help="Dimensione massima (caratteri) per chunk quando --chunk-output è attivo (default 16000)",
     )
+    p.add_argument(
+        "--include-pointless",
+        action="store_true",
+        help="Se presente, NON esclude le estensioni binarie/inutili durante lo scan (default: escludi).",
+    )
     return p.parse_args()
 
 
