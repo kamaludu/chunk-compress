@@ -1,4 +1,4 @@
-[![Compressore locale LLM‑ready](https://img.shields.io/badge/Compressore_locale_LLM‑ready-00aa55?style=for-the-badge&label=CLI&labelColor=004d00)](README.md)
+[![Compressore locale LLM‑ready](https://img.shields.io/badge/Compressore_locale_LLM‑ready-00aa55?style=for-the-badge&label=>&labelColor=004d00)](README.md)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-green.svg)](LICENSE)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/Django?style=flat)](#)
 
