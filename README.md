@@ -137,9 +137,10 @@ Stampato a terminale:
 
 ---
 
-## Parametri ottimizzabili: range, preset aggressivo, conservativo, massimo risparmio token
+### Parametri ottimizzabili: 
+**Range, Preset aggressivo, conservativo, massimo risparmio token**
 
-| Parametro | Min | Max | Aggressivo | Conservativo | Massimo risparmio token | Note |
+| Parametro | Min | Max | Aggressivo | Conservativo | Max risparmio token | Note |
 |----------|----:|----:|-----------:|-------------:|-------------------------:|------|
 | **L_min** | 4 | ~2000 | 16 | 64 | 24–32 | Più basso → più match → più placeholder → più compressione ma più rischio rumore. |
 | **N_min** | 2 | ~100 | 2 | 3–4 | 2 | 2 = massimo rilevamento ripetizioni. |
