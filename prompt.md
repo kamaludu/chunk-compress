@@ -1,3 +1,5 @@
+[![Compressore locale LLM‑ready](https://img.shields.io/badge/Compressore_locale_LLM‑ready-00aa55?style=for-the-badge&label=>&labelColor=004d00)](README.md)
+
 # 🔥 PROMPT MASTER - senza uso di CHUNKS
 (ottimizzato per Copilot Think Deeper)
 
