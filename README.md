@@ -328,7 +328,6 @@ Contiene:
 - `mapping_subset.json` è pensato per l’uso in chat LLM.  
 - `reverse_map.json` è completo ma molto grande.  
 - `--export-manifest` è idempotente.  
-- I chunk sono utili per file molto grandi o per chat con limiti di input.  
-```
+- I chunk sono utili per file molto grandi o per chat con limiti di input. 
 
 ---
