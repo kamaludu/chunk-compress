@@ -80,6 +80,18 @@ def main():
         # 2) load
         contents = core.load_contents(file_metas)
 
+        # 2b) Regola fissa applicata di default:
+        # Mantieni le righe vuote solo per formati documentazione (.md, .txt, .rst, .html, .tex, .adoc, .org)
+        # Rimuovile per tutti gli altri formati.
+        if not hasattr(core, "strip_empty_lines_by_extension"):
+            print("Errore: funzione 'strip_empty_lines_by_extension' non trovata in core.py", file=sys.stderr)
+            sys.exit(1)
+        try:
+            contents = core.strip_empty_lines_by_extension(contents)
+        except Exception as e:
+            print(f"Errore durante l'applicazione di strip_empty_lines_by_extension: {e}", file=sys.stderr)
+            sys.exit(1)
+
         # 3) analyze
         candidates = core.find_repetitions(
             contents,
@@ -159,12 +171,9 @@ def main():
         if getattr(args, "chunk_output", False):
             try:
                 chunks_manifest = core.chunk_outputs(llm_ready, output_dir, args.chunk_size, input_path)
-                # serializziamo il manifest dei chunk in OUT_DIR/chunks/manifest.json
                 chunks_dir = output_dir / "chunks"
                 io_utils.ensure_dir(chunks_dir)
-                # assicurati che chunks_manifest contenga 'chunks_dir' (valore relativo)
                 if isinstance(chunks_manifest, dict) and "chunks_dir" not in chunks_manifest:
-                    # default: i chunk sono scritti in una sottodirectory chiamata "chunks"
                     chunks_manifest["chunks_dir"] = "chunks"
                 io_utils.write_atomic(
                     chunks_dir / "manifest.json",
@@ -181,7 +190,6 @@ def main():
                 print("Roundtrip FAILED:", file=sys.stderr)
                 for d in details:
                     print(" -", d, file=sys.stderr)
-                # scrivi un report diagnostico in output_dir per debug
                 try:
                     io_utils.write_atomic(output_dir / "roundtrip_failures.json", json.dumps(details, ensure_ascii=False, indent=2))
                 except Exception:
