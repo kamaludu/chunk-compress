@@ -195,14 +195,9 @@ python3 cli.py --input INPUT_DIR --output OUT_DIR --export-manifest
 python3 cli.py --input INPUT_DIR --output OUT_DIR --export-manifest
 ```
 
-- **Genera mapping_subset.json per file specifici e il manifest insieme**:
+- **Esempio reale per la tua cartella:**
 ```sh
-python3 cli.py --input INPUT_DIR --output OUT_DIR --export-mapping-for file1.txt,file2.md --export-manifest
-```
-
-- **Esempio reale per la tua cartella groqbash**:
-```sh
-python3 cli.py -i ../groqbash/groqbash -o ./out --export-manifest
+python3 cli.py -i ../directory/file.xx -o ./out --export-manifest
 ```
 
 ---
