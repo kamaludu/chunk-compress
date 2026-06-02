@@ -156,7 +156,7 @@ out/
 
 ## 9. Come usare gli output in una chat LLM
 
-### Caso A — File piccoli (senza chunking)
+**Caso A — File piccoli (senza chunking)**
 1. Apri `out/`
 2. Copia i file compressi (sono molto più piccoli)
 3. Incollali nella chat LLM
@@ -164,7 +164,7 @@ out/
    → contiene solo i placeholder effettivamente usati  
 5. Chiedi al modello di ricostruire i file usando mapping + file compressi
 
-### Caso B — File grandi (con chunking)
+**Caso B — File grandi (con chunking)**
 1. Apri `out/chunks/`
 2. Copia:
    - `chunks/manifest.json`
