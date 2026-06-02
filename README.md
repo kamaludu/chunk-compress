@@ -130,7 +130,6 @@ Il `chunks/manifest.json` descrive:
 - quali chunk compongono ogni file
 - ordine dei chunk
 - SHA256 atteso (se presente)
-```
 
 ---
 
