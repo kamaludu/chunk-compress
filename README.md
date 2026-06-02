@@ -77,7 +77,7 @@ python3 cli.py --input ./src --output ./out --L_min 80 --verify-roundtrip
 ## 7. Output generati
 Dentro la directory `out/` troverai:
 
-### **1) File compressi LLM‑ready**
+**1) File compressi LLM‑ready**
 Stessa struttura dei file originali, ma con placeholder:
 
 ```
@@ -85,7 +85,7 @@ Stessa struttura dei file originali, ma con placeholder:
 §§b001§§   (block)
 ```
 
-### **2) mapping_subset.json**
+**2) mapping_subset.json**
 Contiene **solo i placeholder effettivamente usati nei file compressi**.
 
 - È generato **automaticamente per tutti i file processati**.
@@ -97,7 +97,7 @@ Puoi controllarne la generazione con:
 - `--no-export-mapping` → **nessun mapping_subset.json**
 - `--no-export-mapping file1,file2,...` → esclude solo quei file
 
-### **3) reverse_map.json**
+**3) reverse_map.json**
 Contiene il mapping **completo**:
 
 - placeholder → contenuto originale
@@ -106,7 +106,7 @@ Contiene il mapping **completo**:
 
 È utile per verifiche locali, ma **troppo grande per essere incollato in una chat**.
 
-### **4) manifest.json** (solo se `--export-manifest`)
+**4) manifest.json** (solo se `--export-manifest`)
 Manifest compatto della struttura originale:
 
 - paths
@@ -114,7 +114,7 @@ Manifest compatto della struttura originale:
 - placeholder usati
 - versioning
 
-### **5) chunks/** (solo se `--chunk-output`)
+**5) chunks/** (solo se `--chunk-output`)
 Contiene:
 
 ```
