@@ -22,9 +22,14 @@ def parse_args():
     p.add_argument("--B_max_lines", type=int, default=20)
     p.add_argument("--verify-roundtrip", action="store_true")
     p.add_argument(
-        "--export-mapping-for",
-        help="Comma-separated list di nomi file (relativi a OUTPUT) per cui esportare il mapping ridotto (scrive mapping_subset.json in output dir)",
-        default="",
+        "--no-export-mapping",
+        nargs="?",
+        const="",
+        help=(
+            "Se presente, disabilita l'export completo di mapping_subset.json per default. "
+            "Puoi passare una lista separata da virgole di file (relativi all'input) da ESCLUDERE "
+            "dall'export. Se fornito senza valore, esclude tutti i file (nessun mapping_subset.json)."
+        ),
     )
     p.add_argument(
         "--export-manifest",
@@ -123,44 +128,72 @@ def main():
         _write_outputs(llm_ready, reverse_map, output_dir, input_path)
 
         # 6b) export reduced mapping per file (LLM-ready)
-        if getattr(args, "export_mapping_for", ""):
-            files = [s.strip() for s in args.export_mapping_for.split(",") if s.strip()]
-            if files:
-                ref_files = []
-                for f in files:
+        # New required behavior:
+        # - Default: export mapping_subset.json for ALL files processed.
+        # - If --no-export-mapping is provided without value -> exclude all (no export).
+        # - If --no-export-mapping is provided with a comma-separated value -> treat that as list of files to EXCLUDE from export.
+        files = []
+        no_export_val = getattr(args, "no_export_mapping", None)
+        if no_export_val is None:
+            # default: include all processed files (relative paths)
+            for m in file_metas:
+                try:
+                    rel = Path(m["path"]).relative_to(input_path).as_posix()
+                except Exception:
+                    rel = Path(m["path"]).name
+                files.append(rel)
+        else:
+            # user requested exclusions
+            if no_export_val == "":
+                # provided without value -> exclude all (no export)
+                files = []
+            else:
+                excludes = [s.strip() for s in str(no_export_val).split(",") if s.strip()]
+                for m in file_metas:
                     try:
-                        ref_files.append(str(Path(f).as_posix()))
+                        rel = Path(m["path"]).relative_to(input_path).as_posix()
                     except Exception:
-                        pass
-                    try:
-                        ref_files.append(str((Path(f)).as_posix()))
-                    except Exception:
-                        pass
-                ref_files = list(dict.fromkeys(ref_files))
-                subset = core.extract_mapping_for_files(reverse_map, ref_files)
-                llm_subset = {"placeholders": {}}
-                for ph, entry in (subset or {}).items():
-                    content = entry.get("content") if isinstance(entry, dict) else None
-                    if content is None:
-                        rm_entry = reverse_map.get("placeholders", {}).get(ph) if isinstance(reverse_map, dict) else None
-                        if isinstance(rm_entry, dict):
-                            content = rm_entry.get("content")
-                    if content is None:
+                        rel = Path(m["path"]).name
+                    if rel in excludes:
                         continue
-                    sha = entry.get("sha256") if isinstance(entry, dict) else reverse_map.get("placeholders", {}).get(ph, {}).get("sha256", "")
-                    length = entry.get("length") if isinstance(entry, dict) else len(content)
-                    llm_subset["placeholders"][ph] = {
-                        "content": content,
-                        "sha256": sha or "",
-                        "length": length or len(content),
-                    }
+                    files.append(rel)
 
-                io_utils.write_atomic(
-                    output_dir / "mapping_subset.json",
-                    json.dumps(llm_subset, ensure_ascii=False, indent=2),
-                )
+        if files:
+            ref_files = []
+            for f in files:
+                try:
+                    ref_files.append(str(Path(f).as_posix()))
+                except Exception:
+                    pass
+                try:
+                    ref_files.append(str((Path(f)).as_posix()))
+                except Exception:
+                    pass
+            ref_files = list(dict.fromkeys(ref_files))
+            subset = core.extract_mapping_for_files(reverse_map, ref_files)
+            llm_subset = {"placeholders": {}}
+            for ph, entry in (subset or {}).items():
+                content = entry.get("content") if isinstance(entry, dict) else None
+                if content is None:
+                    rm_entry = reverse_map.get("placeholders", {}).get(ph) if isinstance(reverse_map, dict) else None
+                    if isinstance(rm_entry, dict):
+                        content = rm_entry.get("content")
+                if content is None:
+                    continue
+                sha = entry.get("sha256") if isinstance(entry, dict) else reverse_map.get("placeholders", {}).get(ph, {}).get("sha256", "")
+                length = entry.get("length") if isinstance(entry, dict) else len(content)
+                llm_subset["placeholders"][ph] = {
+                    "content": content,
+                    "sha256": sha or "",
+                    "length": length or len(content),
+                }
 
-                print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
+            io_utils.write_atomic(
+                output_dir / "mapping_subset.json",
+                json.dumps(llm_subset, ensure_ascii=False, indent=2),
+            )
+
+            print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
 
         # 6c) export manifest compatto se richiesto
         if getattr(args, "export_manifest", False):
