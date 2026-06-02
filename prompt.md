@@ -125,7 +125,7 @@ Regole:
 
 ---
 
-# 🎯 Sequenza finale consigliata
+## 🎯 Sequenza finale consigliata
 
 ```text
 1. Inizio sessione
@@ -301,13 +301,12 @@ Esempi di richieste valide:
 ---
 
 ## **8) Note tecniche finali**
-```text
+
 - I chunk sono porzioni di file compressi (LLM‑ready) che contengono placeholder.
 - L’ordine dei chunk è definito SOLO dal chunks/manifest.json.
 - Il mapping è globale e può essere applicato a chunk diversi.
 - Se manca un chunk, un placeholder o uno SHA, devi segnalarlo senza tentare di indovinare.
 - La ricostruzione deve essere esatta, carattere per carattere.
 - Se un chunk è troppo grande per un singolo messaggio, chiedi di inviarlo suddiviso.
-```
 
 ---
