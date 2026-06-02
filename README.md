@@ -1,4 +1,4 @@
-[![Compressore locale LLM‑ready](https://img.shields.io/badge/Compressore_locale_LLM‑ready-00aa55?style=for-the-badge&label=%E2%9E%9C&labelColor=004d00)](README.md)
+[![Compressore locale LLM‑ready](https://img.shields.io/badge/Compressore_locale_LLM‑ready-00aa55?style=for-the-badge&label=CLI&labelColor=004d00)](README.md)
 
 # Compressore locale LLM‑ready  
 Compressione reversibile per testo, ottimizzata per LLM (placeholder + manifest + chunking + roundtrip verificabile)
