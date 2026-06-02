@@ -137,6 +137,19 @@ Stampato a terminale:
 
 ---
 
+## Parametri ottimizzabili: range, preset aggressivo, conservativo, massimo risparmio token
+
+| Parametro | Min | Max | Aggressivo | Conservativo | Massimo risparmio token | Note |
+|----------|----:|----:|-----------:|-------------:|-------------------------:|------|
+| **L_min** | 4 | ~2000 | 16 | 64 | 24–32 | Più basso → più match → più placeholder → più compressione ma più rischio rumore. |
+| **N_min** | 2 | ~100 | 2 | 3–4 | 2 | 2 = massimo rilevamento ripetizioni. |
+| **B_min_lines** | 1 | ~50 | 2 | 5 | 3 | Ridurre troppo può generare blocchi troppo piccoli. |
+| **B_max_lines** | B_min_lines | ~200 | 8–12 | 20 | 6–10 | Più basso → blocchi più piccoli → più placeholder. |
+| **min_total_saving** | 0 | ∞ | 0–10 | 100 | 0 | 0 = accetta tutto ciò che comprime anche di 1 char. |
+| **chunk-size** | 2000 | ∞ | 8000 | 16000 | 4000–8000 | Influisce solo sui chunk, non sulla compressione. |
+
+---
+
 **Preset completo:** (aggressivo)
 
 ```sh
