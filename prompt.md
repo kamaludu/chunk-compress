@@ -125,7 +125,7 @@ Regole:
 
 ---
 
-# 🎯 Sequenza finale consigliata (ultra‑efficiente)
+# 🎯 Sequenza finale consigliata
 
 ```text
 1. Inizio sessione
@@ -139,7 +139,7 @@ Regole:
 ---
 
 
-## 🔥 PROMPT MASTER — con uso di CHUNKS
+# 🔥 PROMPT MASTER — con uso di CHUNKS
 
 Pipeline ottimale:  
 **chunks/manifest.json → mapping_subset.json → chunk files → assemblaggio → ricostruzione → verifica SHA → analisi**
