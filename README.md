@@ -4,7 +4,7 @@ Piccolo compressore reversibile per testo, pensato per LLM: placeholder + manife
 
 ---
 
-**Clone locale:**
+**Clona in locale:**
 ```sh
 git clone --depth 1 --branch main https://github.com/kamaludu/chunk-compress.git chunk-compress
 ```
@@ -90,8 +90,7 @@ Stampato a terminale:
 1. Apri `out/`  
 2. Copia i file compressi (sono molto più piccoli)  
 3. Incollali nella chat LLM  
-4. Se il modello deve ricostruire parti originali, incolla anche `reverse_map.json`  
-   (o solo le parti necessarie)
+4. Se il modello deve ricostruire parti originali, incolla anche `mapping_subset.json`  
 
 ## 8. Flusso tipico
 1. Metti i tuoi file in una directory  
@@ -178,8 +177,7 @@ python3 cli.py \
 ---
 
 ### Nota rapida
-- **Obiettivo**: abbassare `L_min` e `min_total_saving` e usare placeholder più corti per rendere i singoli file `out/...` molto piccoli; la **reverse_map.json** crescerà.  
-- **Estrazione automatica**: usa `--export-mapping-for` per ottenere `out/mapping_subset.json` contenente solo i placeholder rilevanti per i file selezionati.
+- **Obiettivo**: abbassare `L_min` e `min_total_saving` e usare placeholder più corti per rendere i singoli file `out/...` molto piccoli; la **mapping_subset.json** (e reverse_map.json) crescerà.  
 
 ---
 
