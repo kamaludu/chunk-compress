@@ -141,7 +141,7 @@ Stampato a terminale:
 **Range (minimo / massimo), preset Aggressivo, Conservativo, Massimo Risparmio token**
 
 | Parametro | Range | Aggressivo | Conservativo | M. R. token | Note |
-|----------|:------|-----------:|-------------:|-------------------------:|------|
+|----------|:-----:|-----------:|-------------:|-------------------------:|------|
 | **L_min** | 4 / ~2000 | 16 | 64 | 24–32 | Più basso → più match → più placeholder → più compressione ma più rischio rumore. |
 | **N_min** | 2 / ~100 | 2 | 3–4 | 2 | 2 = massimo rilevamento ripetizioni. |
 | **B_min_lines** | 1 / ~50 | 2 | 5 | 3 | Ridurre troppo può generare blocchi troppo piccoli. |
