@@ -118,21 +118,22 @@ Stampato a terminale:
 (ordinati alfabeticamente)
 
 | **Flag** | **Tipo** | **Descrizione** | **Range / note** | **Esempio** |
-|---|---:|---|---|---|
-| **--B_max_lines** | intero | Numero massimo di righe per candidati block. | ≥ B_min_lines | `--B_max_lines 10` |
-| **--B_min_lines** | intero | Numero minimo di righe per candidati block. | minimo 1 | `--B_min_lines 3` |
-| **--chunk-output** | flag | Genera chunk dei file compressi in `OUT_DIR/chunks/`. | flag booleano | `--chunk-output` |
-| **--chunk-size** | intero | Dimensione massima dei chunk in caratteri. | default 16000 | `--chunk-size 16000` |
-| **--export-manifest** | flag | Genera `manifest.json` compatto (paths, files, ph, v). | flag booleano | `--export-manifest` |
-| **--export-mapping-for** | stringa (lista) | Lista separata da virgole di file relativi a `--output` per cui esportare `mapping_subset.json`. | nomi o percorsi relativi | `--export-mapping-for INSTALL.md,header.html` |
-| **--input, -i** | stringa | Directory o file‑lista da processare. | deve esistere | `--input ./project` |
-| **--L_min** | intero | Lunghezza minima substring per rolling hash. | 4–2000; default 64 | `--L_min 24` |
-| **--min_total_saving** | intero | Risparmio minimo richiesto per accettare una sostituzione. | minimo 0; default 100 | `--min_total_saving 20` |
-| **--N_min** | intero | Occorrenze minime per considerare una substring candidata. | minimo 2 | `--N_min 2` |
-| **--output, -o** | stringa | Directory di output. | creata se mancante | `--output ./out` |
-| **--placeholder-blk** | stringa formato | Formato placeholder per block. | più corto → output più piccolo | `--placeholder-blk "§§b{:03d}§§"` |
-| **--placeholder-sub** | stringa formato | Formato placeholder per substring. | più corto → output più piccolo | `--placeholder-sub "§§s{:03d}§§"` |
-| **--verify-roundtrip** | flag | Verifica roundtrip e fallisce se non coincide. | flag booleano | `--verify-roundtrip` |
+| --- | --- | --- | --- | --- |
+| **--B_max_lines** | intero | Numero massimo di righe per candidati block. | ≥ B_min_lines | ``--B_max_lines ``20`` |
+| **--B_min_lines** | intero | Numero minimo di righe per candidati block. | minimo 1 | ``--B_min_lines ``5`` |
+| **--chunk-output** | flag | Genera chunk dei file compressi in ``OUT_DIR/chunks/``. | flag booleano | ``--chunk-output`` |
+| **--chunk-size** | intero | Dimensione massima dei chunk in caratteri. | default 16000 | ``--chunk-size ``16000`` |
+| **--export-manifest** | flag | Genera ``manifest.json`` compatto (paths, files, ph, v). | flag booleano | ``--export-manifest`` |
+| **--include-pointless** | flag | NON esclude estensioni binarie/inutili durante lo scan. | default: esclusi | ``--include-pointless`` |
+| **--input, -i** | stringa | Directory o file‑lista da processare. | deve esistere | ``--input ``./project`` |
+| **--L_min** | intero | Lunghezza minima substring per rolling hash. | 4–2000; default 64 | ``--L_min ``24`` |
+| **--min_total_saving** | intero | Risparmio minimo richiesto per accettare una sostituzione. | minimo 0; default 100 | ``--min_total_saving ``20`` |
+| **--N_min** | intero | Occorrenze minime per considerare una substring candidata. | minimo 2 | ``--N_min ``2`` |
+| **--no-export-mapping** | stringa opzionale | Disabilita l’export di ``mapping_subset.json`` o esclude file specifici. | senza valore → nessun export; con lista → esclude quei file | ``--no-export-mapping``, ``--no-export-mapping ``a/b.txt,c/d.py`` |
+| **--output, -o** | stringa | Directory di output. | creata se mancante | ``--output ``./out`` |
+| **--placeholder-blk** | stringa formato | Formato placeholder per block. | più corto → output più piccolo | ``--placeholder-blk ``"§§b{:03d}§§"`` |
+| **--placeholder-sub** | stringa formato | Formato placeholder per substring. | più corto → output più piccolo | ``--placeholder-sub ``"§§s{:03d}§§"`` |
+| **--verify-roundtrip** | flag | Verifica roundtrip e fallisce se non coincide. | flag booleano | ``--verify-roundtrip`` |
 
 ---
 
@@ -149,7 +150,6 @@ python3 cli.py \
   --min_total_saving 20 \                        # opzionale (default: 100)
   --placeholder-sub "§§s{:03d}§§" \              # opzionale (default: §§s{:03d}§§)
   --placeholder-blk "§§b{:03d}§§" \              # opzionale (default: §§b{:03d}§§)
-  --export-mapping-for groqbash \                # opzionale (genera mapping_subset.json)
   --export-manifest \                            # opzionale (manifest basato su input originale)
   --verify-roundtrip \                           # opzionale (consigliato)
   --chunk-output \                               # opzionale (genera chunk)
