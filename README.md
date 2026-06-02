@@ -141,7 +141,7 @@ Stampato a terminale:
 
 ```sh
 python3 cli.py \
-  --input ../groqbash/groqbash \        # obbligatorio
+  --input ../directory/file.sh \        # obbligatorio
   --output ./out \                      # opzionale (default: ./compressed_output)
   --L_min 30 \                          # opzionale (default: 64)
   --N_min 2 \                           # opzionale (default: 2)
@@ -154,6 +154,22 @@ python3 cli.py \
   --verify-roundtrip \                  # opzionale (consigliato)
   --chunk-output \                      # opzionale (genera chunk)
   --chunk-size 15000                    # opzionale (default: 16000)
+```
+
+  
+**Preset tipico:**
+
+```sh
+python3 cli.py \
+  --input ../directory/file.sh \
+  --output ./out \
+  --L_min 32 \
+  --N_min 2 \
+  --B_min_lines 3 \
+  --B_max_lines 10 \  
+  --min_total_saving 20 \
+  --export-manifest \ 
+  --verify-roundtrip \
 ```
 
 ---
