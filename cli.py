@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-cli.py
-Orchestratore della pipeline (aggiornato con chunking opzionale).
+Compressore locale LLM‑ready
+File: cli.py
+Copyright (C) 2026 Cristian Evangelisti
+License: GPL-3.0-or-later
+SPDX-License-Identifier: GPL-3.0-or-later
+Source: https://github.com/kamaludu/chunk-compress
+
+Descrizione:
+Orchestratore della pipeline, con chunking opzionale.
 """
 
 import argparse
