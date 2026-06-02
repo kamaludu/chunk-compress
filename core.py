@@ -429,6 +429,81 @@ def _reconstruct_using_tokens(transformed: str, token_map: Dict[str, str]) -> st
     return pattern.sub(lambda m: token_map[m.group(0)], transformed)
 
 
+def extract_mapping_for_files(reverse_map: dict, paths: list) -> dict:
+    """
+    Estrae dal reverse_map un dizionario pid -> {content, sha256, length}
+    contenente solo i placeholder che hanno almeno un'occurrence in uno dei
+    path forniti (mapping_subset.json).
+
+    - reverse_map: struttura completa prodotta da apply_placeholders()
+    - paths: lista di path relativi o nomi file (come passati a --export-mapping-for)
+
+    Matching:
+    - confronto su basename (Path.name)
+    - confronto su suffix (occ_path.endswith(provided_path)) per supportare
+      percorsi relativi come "dir/file" o "file"
+
+    La funzione NON include occorrenze né percorsi nei valori restituiti
+    (evita leak di path).
+    """
+    from pathlib import Path
+    from typing import Any, Dict
+
+    if not isinstance(reverse_map, dict):
+        return {}
+
+    # normalizza input paths (manteniamo i valori così come sono)
+    norm = [p.strip() for p in (paths or []) if p and p.strip()]
+    if not norm:
+        return {}
+
+    norm_set = set(norm)
+    norm_names = {Path(p).name for p in norm_set}
+
+    placeholders = reverse_map.get("placeholders", {})
+    out: Dict[str, Dict[str, Any]] = {}
+
+    for pid, info in placeholders.items():
+        if not isinstance(info, dict):
+            continue
+        occs = info.get("occurrences", [])
+        if not occs:
+            continue
+        matched = False
+        for occ in occs:
+            occ_path = occ.get("path")
+            if not occ_path:
+                continue
+            occ_name = Path(occ_path).name
+            # match by basename
+            if occ_name in norm_names:
+                matched = True
+                break
+            # match by suffix (supporta "dir/file" o "file")
+            for p in norm:
+                if occ_path.endswith(p):
+                    matched = True
+                    break
+            if matched:
+                break
+
+        if not matched:
+            continue
+
+        # costruisci entry LLM-safe (nessun path/occurrence)
+        content = info.get("content", "")
+        sha = info.get("sha256") or info.get("sha") or ""
+        length = info.get("length") or (len(content) if isinstance(content, str) else 0)
+
+        # includi solo se abbiamo almeno il content (evita entry vuote)
+        if content is None or content == "":
+            # preferiamo non esportare placeholder senza content
+            continue
+
+        out[pid] = {"content": content, "sha256": sha, "length": length}
+
+    return out
+
 # -------------------------
 # Roundtrip check
 # -------------------------
