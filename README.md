@@ -30,7 +30,7 @@ Puoi fornire:
 ### A) Una **directory**
 Esempio:
 ```
-/home/cristian/progetto/
+/home/directory/progetto/
 ```
 
 ### B) Una **file‑lista**
@@ -46,18 +46,6 @@ Comando:
 
 ```
 python3 cli.py --input <percorso_input> --output out
-```
-
-Esempi:
-
-```
-python3 cli.py --input ./mio_codice --output ./out
-```
-
-oppure:
-
-```
-python3 cli.py --input filelist.txt --output ./out
 ```
 
 ## 5. Parametri utili
