@@ -67,8 +67,8 @@ Dentro la directory `out/` troverai:
 ### 1) **File compressi LLM‑ready**
 Stessa struttura dei file originali, ma con placeholder tipo:
 ```
-§§S:001§§
-§§B:002§§
+§§s001§§   (o §§s{:03d}§§)
+§§b001§§   (o §§b{:03d}§§)
 ```
 
 ### 2) **reverse_map.json**
