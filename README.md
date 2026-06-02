@@ -31,13 +31,13 @@ io_utils.py
 ## 4. Preparazione input
 Puoi fornire:
 
-### A) Una **directory**
+**A) Una directory**
 Esempio:
 ```
 /home/user/progetto/
 ```
 
-### B) Una **file‑lista**
+**B) Una file‑lista**
 Un file di testo con un percorso per riga:
 ```
 src/a.py
