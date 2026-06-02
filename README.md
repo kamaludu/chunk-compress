@@ -71,8 +71,15 @@ Stessa struttura dei file originali, ma con placeholder tipo:
 §§b001§§   (o §§b{:03d}§§)
 ```
 
-### 2) **reverse_map.json**
-Contiene:
+### 2) mapping_subset.json
+Contiene: mapping placeholder
+È sempre generato automaticamente per tutti i file processati
+`--no-export-mapping` serve per:
+escludere tutti i file (nessun export)
+escludere solo alcuni file
+
+**reverse_map.json**
+Utile per controlli locali, ontiene:
 - mapping placeholder → contenuto originale
 - posizioni originali
 - metadati
