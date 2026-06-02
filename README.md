@@ -161,14 +161,15 @@ python3 cli.py \
 
 ```sh
 python3 cli.py \
-  --input ../directory/file.sh \
+  --input ../selected/directory/ \
   --L_min 32 \
   --N_min 2 \
   --B_min_lines 3 \
-  --B_max_lines 10 \  
+  --B_max_lines 10 \
   --min_total_saving 20 \
-  --export-manifest \ 
-  --verify-roundtrip \
+  --export-manifest \
+  --verify-roundtrip
+
 ```
 
 ---
