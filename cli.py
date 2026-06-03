@@ -169,14 +169,12 @@ def main():
             ref_files = []
             for f in files:
                 try:
-                    ref_files.append(str(Path(f).as_posix()))
+                    ref_files.append(Path(f).as_posix())
                 except Exception:
                     pass
-                try:
-                    ref_files.append(str((Path(f)).as_posix()))
-                except Exception:
-                    pass
-            ref_files = list(dict.fromkeys(ref_files))
+            # deduplicate while preserving order
+            seen = set()
+            ref_files = [x for x in ref_files if not (x in seen or seen.add(x))]
             subset = core.extract_mapping_for_files(reverse_map, ref_files)
             llm_subset = {"placeholders": {}}
             for ph, entry in (subset or {}).items():
