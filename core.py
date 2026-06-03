@@ -474,16 +474,30 @@ def apply_placeholders(
 
 def _build_token_map_from_reverse_map(reverse_map: Dict[str, Any]) -> Dict[str, str]:
     """
-    Restituisce mapping token -> content usando il campo 'token' se presente,
-    altrimenti ignora l'entry.
+    Restituisce mapping token -> content.
+
+    Assunzione: reverse_map['placeholders'] usa **direttamente** le chiavi token
+    testuali (es. '§§s002§§' / '§§b012§§'). Se l'entry contiene il campo 'token'
+    lo rispettiamo comunque.
     """
     token_map: Dict[str, str] = {}
-    for pid, info in reverse_map.get("placeholders", {}).items():
-        tok = info.get("token")
-        if tok:
-            token_map[tok] = info.get("content", "")
-    return token_map
+    placeholders = reverse_map.get("placeholders", {})
+    if not isinstance(placeholders, dict):
+        return token_map
 
+    for key, info in placeholders.items():
+        if not isinstance(info, dict):
+            continue
+        # preferiamo il campo 'token' se presente (ridondante ma esplicito)
+        tok = info.get("token") or key
+        # accettiamo solo token che hanno la forma prevista (ma non forziamo conversioni)
+        if not isinstance(tok, str):
+            continue
+        content = info.get("content", "")
+        if not isinstance(content, str):
+            continue
+        token_map[tok] = content
+    return token_map
 
 def _reconstruct_using_tokens(transformed: str, token_map: Dict[str, str]) -> str:
     """
