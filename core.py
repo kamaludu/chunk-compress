@@ -699,6 +699,27 @@ def build_manifest(file_metas: List[Dict[str, Any]], reverse_map: Dict[str, Any]
     return manifest
 
 
+def write_reverse_map(reverse_map: dict, out_path):
+    """
+    Scrive reverse_map su disco in modo atomico.
+    Non modifica la struttura, delega solo a io_utils.
+    """
+    from pathlib import Path
+    p = Path(out_path)
+    io_utils.ensure_dir(p.parent)
+    io_utils.write_json_atomic(p, reverse_map, ensure_ascii=False, indent=2)
+
+def write_mapping_subset(reverse_map: dict, paths: list, out_path):
+    """
+    Estrae il subset per i file indicati e lo scrive in modo atomico.
+    Usa extract_mapping_for_files come sorgente.
+    """
+    from pathlib import Path
+    p = Path(out_path)
+    subset = extract_mapping_for_files(reverse_map, paths or [])
+    io_utils.ensure_dir(p.parent)
+    io_utils.write_json_atomic(p, subset, ensure_ascii=False, indent=2)
+
 # -------------------------
 # Chunks 
 # -------------------------
