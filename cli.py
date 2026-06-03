@@ -165,6 +165,9 @@ def main():
                         continue
                     files.append(rel)
 
+        # ensure llm_subset exists even if no files are selected, to avoid NameError later
+        llm_subset = {"placeholders": {}}
+
         if files:
             ref_files = []
             for f in files:
@@ -176,7 +179,6 @@ def main():
             seen = set()
             ref_files = [x for x in ref_files if not (x in seen or seen.add(x))]
             subset = core.extract_mapping_for_files(reverse_map, ref_files)
-            llm_subset = {"placeholders": {}}
             for ph, entry in (subset or {}).items():
                 content = entry.get("content") if isinstance(entry, dict) else None
                 if content is None:
@@ -192,9 +194,6 @@ def main():
                     "sha256": sha or "",
                     "length": length or len(content),
                 }
-                
-        # ensure llm_subset exists even if no files are selected, to avoid NameError later
-        llm_subset = {"placeholders": {}}
 
         if llm_subset.get("placeholders"):
             io_utils.write_atomic(
