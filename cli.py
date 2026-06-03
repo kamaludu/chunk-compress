@@ -195,11 +195,9 @@ def main():
                     "length": length or len(content),
                 }
 
-        if llm_subset.get("placeholders"):
-            io_utils.write_atomic(
-                output_dir / "mapping_subset.json",
-                json.dumps(llm_subset, ensure_ascii=False, indent=2),
-            )
+        # Export mapping_subset.json usando helper core (normalizza i content prima di scrivere)
+        if files:
+            core.write_mapping_subset(reverse_map, files, output_dir / "mapping_subset.json")
             print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
         else:
             print("No placeholders to export; mapping_subset.json not written.")
@@ -277,10 +275,7 @@ def _write_outputs(llm_ready, reverse_map, output_dir: Path, input_root: Path):
             errors.append((str(out_path), str(e)))
 
     try:
-        io_utils.write_atomic(
-            output_dir / "reverse_map.json",
-            json.dumps(reverse_map, ensure_ascii=False, indent=2),
-        )
+        core.write_reverse_map(reverse_map, output_dir / "reverse_map.json")
     except Exception as e:
         errors.append((str(output_dir / "reverse_map.json"), str(e)))
 
