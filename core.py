@@ -66,10 +66,14 @@ def scan_files(input_path: str, exclude_pointless: bool = True) -> List[Dict[str
 
     p = Path(input_path)
     files: List[Path] = []
-    if p.is_dir():
-        for f in sorted(p.rglob("*")):
-            if f.is_file():
-                files.append(f)
+        if p.is_dir():
+          for f in sorted(p.rglob("*")):
+              # skip hidden files and directories (names starting with a dot)
+              if f.name.startswith("."):
+                  continue
+              if f.is_file():
+                  files.append(f)
+
     elif p.is_file():
         # input è un singolo file: processalo direttamente
         files.append(p)
