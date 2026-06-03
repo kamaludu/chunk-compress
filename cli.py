@@ -193,12 +193,14 @@ def main():
                     "length": length or len(content),
                 }
 
+        if llm_subset.get("placeholders"):
             io_utils.write_atomic(
                 output_dir / "mapping_subset.json",
                 json.dumps(llm_subset, ensure_ascii=False, indent=2),
             )
-
             print(f"Exported mapping_subset.json for {len(files)} file(s): {', '.join(files)}")
+        else:
+            print("No placeholders to export; mapping_subset.json not written.")
 
         # 6c) export manifest compatto se richiesto
         if getattr(args, "export_manifest", False):
