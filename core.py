@@ -399,13 +399,13 @@ def apply_placeholders(
     """
     Applica i placeholder ai testi forniti.
 
-    Robustezze aggiunte:
-    - Verifica che l'intervallo [start:end] corrisponda effettivamente al contenuto
-      atteso prima di sostituire; se non corrisponde, l'occorrenza viene saltata.
-    - Salva il token effettivo in reverse_map (campo 'token').
-    - Evita sostituzioni sovrapposte gestite in select_replacements; qui saltiamo
-      eventuali occorrenze incoerenti per non corrompere il file.
+    - Le chiavi in reverse_map["placeholders"] sono **i token testuali**
+      effettivamente inseriti nei file (es. '§§s002§§' o '§§b012§§').
+    - Se un'occorrenza non corrisponde al contenuto atteso viene saltata.
+    - Ogni entry contiene: type, content, sha256, length, occurrences, token.
     """
+    import hashlib
+
     per_file: Dict[str, List[Dict[str, Any]]] = {}
     for r in replacements:
         for o in r["occurrences"]:
@@ -413,7 +413,7 @@ def apply_placeholders(
                 {
                     "start": o["start"],
                     "end": o["end"],
-                    "id": r["id"],
+                    "id": r.get("id"),
                     "placeholder": r["placeholder"],
                     "content": r["content"],
                     "type": r["type"],
@@ -446,21 +446,24 @@ def apply_placeholders(
             expected = r.get("content", "")
             if actual != expected:
                 # occorrenza incoerente: non sostituiamo; manteniamo il testo originale
-                # (non aggiorniamo last, quindi il testo originale rimane)
                 continue
             out_parts.append(text[last:s])
             out_parts.append(r["placeholder"])
             last = e
-            pid = r["id"]
+
+            # USO DEL TOKEN TESTUALE COME CHIAVE nel reverse_map
+            token = r["placeholder"]
             entry = reverse_map["placeholders"].setdefault(
-                pid,
+                token,
                 {
                     "type": r["type"],
                     "content": r["content"],
                     "sha256": hashlib.sha256(r["content"].encode("utf-8")).hexdigest(),
                     "length": len(r["content"]),
                     "occurrences": [],
-                    "token": r["placeholder"],
+                    "token": token,
+                    # manteniamo l'id se presente per tracciabilità interna
+                    "id": r.get("id"),
                 },
             )
             entry["occurrences"].append({"path": path, "start": s, "end": e})
@@ -468,7 +471,6 @@ def apply_placeholders(
         llm_ready[path] = "".join(out_parts)
 
     return llm_ready, reverse_map
-
 
 def _build_token_map_from_reverse_map(reverse_map: Dict[str, Any]) -> Dict[str, str]:
     """
