@@ -192,6 +192,9 @@ def main():
                     "sha256": sha or "",
                     "length": length or len(content),
                 }
+                
+        # ensure llm_subset exists even if no files are selected, to avoid NameError later
+        llm_subset = {"placeholders": {}}
 
         if llm_subset.get("placeholders"):
             io_utils.write_atomic(
