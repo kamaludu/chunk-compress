@@ -399,7 +399,7 @@ def apply_placeholders(
     """
     Applica i placeholder ai testi forniti.
 
-    - Le chiavi in reverse_map["placeholders"] sono **i token testuali**
+    - Le chiavi in reverse_map["placeholders"] sono i token testuali
       effettivamente inseriti nei file (es. '§§s002§§' o '§§b012§§').
     - Se un'occorrenza non corrisponde al contenuto atteso viene saltata.
     - Ogni entry contiene: type, content, sha256, length, occurrences, token.
@@ -415,7 +415,7 @@ def apply_placeholders(
                     "end": o["end"],
                     "id": r.get("id"),
                     "placeholder": r["placeholder"],
-                    "content": r["content"],
+                    "content": r.get("content", ""),
                     "type": r["type"],
                 }
             )
@@ -447,19 +447,24 @@ def apply_placeholders(
             if actual != expected:
                 # occorrenza incoerente: non sostituiamo; manteniamo il testo originale
                 continue
+
             out_parts.append(text[last:s])
             out_parts.append(r["placeholder"])
             last = e
 
             # USO DEL TOKEN TESTUALE COME CHIAVE nel reverse_map
             token = r["placeholder"]
+
+            # Usa il contenuto reale estratto dal file come source of truth
+            actual_content = actual
+
             entry = reverse_map["placeholders"].setdefault(
                 token,
                 {
                     "type": r["type"],
-                    "content": r["content"],
-                    "sha256": hashlib.sha256(r["content"].encode("utf-8")).hexdigest(),
-                    "length": len(r["content"]),
+                    "content": actual_content,
+                    "sha256": hashlib.sha256(actual_content.encode("utf-8")).hexdigest(),
+                    "length": len(actual_content),
                     "occurrences": [],
                     "token": token,
                     # manteniamo l'id se presente per tracciabilità interna
