@@ -590,49 +590,89 @@ def roundtrip_check(
     reverse_map: Dict[str, Any],
 ) -> Tuple[bool, List[str]]:
     """
-    Verifica che i file trasformati (llm_ready) possano essere ricostruiti
-    sostituendo i placeholder con i contenuti in reverse_map e che il SHA256
-    risultante corrisponda allo SHA originale in file_metas.
+    Roundtrip check per modalità LLM‑ready (lossy).
 
-    Migliorie:
-    - usa il campo 'token' salvato in reverse_map (se presente) come prima scelta
-    - sostituzione basata su regex ordinata per lunghezza per evitare collisioni
-    - fallback: se token non presente, non tenta forme ambigue automaticamente
-      (riduce falsi positivi). Se necessario, il caller può eseguire fallback esterni.
+    Controlli eseguiti:
+      - placeholder usati nei file trasformati → devono esistere in reverse_map;
+      - placeholder dichiarati ma non usati → warning (non bloccante);
+      - dopo la ricostruzione non devono rimanere placeholder;
+      - nessun confronto SHA, nessun controllo sul contenuto originale.
+
+    Ritorna (ok_all, details).
     """
-    meta_by_path = {m["path"]: m for m in file_metas}
+    import re
+
     details: List[str] = []
     ok_all = True
 
-    # costruisci token_map una sola volta
-    token_map = _build_token_map_from_reverse_map(reverse_map)
+    # pattern generico per placeholder (fallback)
+    PLACEHOLDER_RE = re.compile(r"§§[^§]{1,200}§§")
 
-    for path, meta in meta_by_path.items():
-        original_sha = meta.get("sha256", "")
-        transformed = llm_ready.get(path)
-        if transformed is None:
-            # file non trasformato: ricontrolla sha originale sul file fisico
-            try:
-                cur_sha = io_utils.sha256_file(path)
-            except Exception:
-                ok_all = False
-                details.append(f"Cannot read original file for SHA check: {path}")
-                continue
-            if cur_sha != original_sha:
-                ok_all = False
-                details.append(f"Original file changed unexpectedly: {path}")
+    # placeholder dichiarati
+    declared = set(reverse_map.get("placeholders", {}).keys())
+
+    # token_map per ricostruzione
+    try:
+        token_map = _build_token_map_from_reverse_map(reverse_map) or {}
+    except Exception:
+        token_map = {}
+
+    # helper per trovare placeholder in un testo
+    def find_placeholders(text: str) -> Set[str]:
+        if not isinstance(text, str):
+            return set()
+        found = set()
+        if token_map:
+            for tok in token_map.keys():
+                if tok in text:
+                    found.add(tok)
+            return found
+        return set(PLACEHOLDER_RE.findall(text))
+
+    # 1) placeholder usati
+    used: Set[str] = set()
+    for text in llm_ready.values():
+        used.update(find_placeholders(text))
+
+    # 2) placeholder usati ma non definiti → errore
+    missing_defs = sorted(used - declared)
+    if missing_defs:
+        ok_all = False
+        details.append(f"Placeholder usati ma non definiti: {len(missing_defs)}")
+        details.extend(missing_defs[:20])
+
+    # 3) placeholder dichiarati ma non usati → warning
+    orphans = sorted(declared - used)
+    if orphans:
+        details.append(f"Placeholder orfani (non usati): {len(orphans)}")
+
+    # 4) ricostruzione: nessun placeholder residuo
+    residual_files = 0
+    for path, transformed in llm_ready.items():
+        if not isinstance(transformed, str):
+            ok_all = False
+            details.append(f"Contenuto non string per {path}")
             continue
 
-        # ricostruzione basata su token espliciti
-        recon = _reconstruct_using_tokens(transformed, token_map)
-
-        # calcolo SHA della ricostruzione e confronto
-        recon_sha = io_utils.sha256_text(recon)
-        if recon_sha != original_sha:
+        try:
+            recon = _reconstruct_using_tokens(transformed, token_map)
+        except Exception as e:
             ok_all = False
-            details.append(
-                f"Mismatch for {path}: original {original_sha} != reconstructed {recon_sha}"
-            )
+            details.append(f"Errore ricostruzione per {path}: {e}")
+            continue
+
+        residuals = find_placeholders(recon)
+        if residuals:
+            ok_all = False
+            residual_files += 1
+            details.append(f"Placeholder non risolti in {path}: {len(residuals)}")
+            details.extend(sorted(list(residuals))[:10])
+
+    # riepilogo
+    if ok_all:
+        details.insert(0, f"Roundtrip (lossy) OK: {len(llm_ready)} file controllati")
+    else:
+        details.insert(0, f"Roundtrip (lossy) FAILED")
 
     return ok_all, details
 
