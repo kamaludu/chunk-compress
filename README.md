@@ -248,7 +248,7 @@ Range minimo/massimo, preset consigliati e note operative.
 
 ---
 
-## 14. Preset completi
+## 14. Preset
 
 **Preset completo (aggressivo)**
 
