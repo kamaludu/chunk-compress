@@ -233,6 +233,11 @@ def main():
         # 7) roundtrip
         if args.verify_roundtrip:
             ok, details = core.roundtrip_check(file_metas, llm_ready, reverse_map)
+            print("=== ROUNDTRIP (lossy) REPORT ===")
+            for d in details:
+                print(" -", d)
+            print("=== END ROUNDTRIP REPORT ===")
+
             if not ok:
                 print("Roundtrip FAILED:", file=sys.stderr)
                 for d in details:
