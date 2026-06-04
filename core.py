@@ -598,35 +598,65 @@ def roundtrip_check(
       - dopo la ricostruzione non devono rimanere placeholder;
       - nessun confronto SHA, nessun controllo sul contenuto originale.
 
+    file_metas: attualmente ignorato in modalità lossy; mantenuto per futura diagnostica (path, tipo file, metadati).
     Ritorna (ok_all, details).
     """
     import re
+    from typing import Set
 
     details: List[str] = []
     ok_all = True
 
-    # pattern generico per placeholder (fallback)
+    # pattern generico per placeholder (fallback best‑effort, usato solo se token_map non disponibile)
     PLACEHOLDER_RE = re.compile(r"§§[^§]{1,200}§§")
 
-    # placeholder dichiarati
-    declared = set(reverse_map.get("placeholders", {}).keys())
+    # validate reverse_map and declared placeholders
+    declared = set()
+    if not isinstance(reverse_map, dict):
+        details.append("Warning: reverse_map non è un dict; nessun placeholder dichiarato rilevato")
+    else:
+        phs = reverse_map.get("placeholders", {})
+        if isinstance(phs, dict):
+            declared.update(phs.keys())
+        else:
+            details.append("Warning: reverse_map['placeholders'] non è un dict; ignorato")
 
-    # token_map per ricostruzione
+    # token_map per ricostruzione: loggare errori invece di sopprimerli silenziosamente
+    token_map = {}
+    token_map_error = None
     try:
         token_map = _build_token_map_from_reverse_map(reverse_map) or {}
-    except Exception:
-        token_map = {}
+        if not isinstance(token_map, dict):
+            details.append("Warning: token_map costruito non è un dict; verrà usato fallback regex")
+            token_map = {}
+    except Exception as e:
+        token_map_error = e
+        details.append(f"Warning: errore costruzione token_map: {e}; verrà usato fallback regex")
+
+    # se abbiamo token_map, prepariamo una regex efficiente ordinando per lunghezza
+    token_regex = None
+    if token_map:
+        try:
+            # ordina per lunghezza decrescente per evitare collisioni (es. '§§s01§§' vs '§§s010§§')
+            token_keys = sorted((k for k in token_map.keys() if isinstance(k, str) and k), key=len, reverse=True)
+            if token_keys:
+                # escape e unisci in alternation
+                alternation = "|".join(re.escape(k) for k in token_keys)
+                token_regex = re.compile(alternation)
+        except Exception as e:
+            details.append(f"Warning: impossibile costruire token regex: {e}")
+            token_regex = None
 
     # helper per trovare placeholder in un testo
     def find_placeholders(text: str) -> Set[str]:
-        if not isinstance(text, str):
+        if not isinstance(text, str) or not text:
             return set()
         found = set()
-        if token_map:
-            for tok in token_map.keys():
-                if tok in text:
-                    found.add(tok)
+        if token_regex:
+            for m in token_regex.finditer(text):
+                found.add(m.group(0))
             return found
+        # fallback: generic regex
         return set(PLACEHOLDER_RE.findall(text))
 
     # 1) placeholder usati
@@ -639,12 +669,21 @@ def roundtrip_check(
     if missing_defs:
         ok_all = False
         details.append(f"Placeholder usati ma non definiti: {len(missing_defs)}")
-        details.extend(missing_defs[:20])
+        # limitare l'output e segnalare troncamento
+        MAX_LIST = 20
+        details.extend(missing_defs[:MAX_LIST])
+        if len(missing_defs) > MAX_LIST:
+            details.append(f"... (elencati {MAX_LIST} di {len(missing_defs)})")
 
     # 3) placeholder dichiarati ma non usati → warning
     orphans = sorted(declared - used)
     if orphans:
         details.append(f"Placeholder orfani (non usati): {len(orphans)}")
+        # non elenchiamo tutti per non inondare il log, ma mostriamo un campione
+        SAMPLE = 10
+        details.extend(orphans[:SAMPLE])
+        if len(orphans) > SAMPLE:
+            details.append(f"... (elencati {SAMPLE} di {len(orphans)})")
 
     # 4) ricostruzione: nessun placeholder residuo
     residual_files = 0
@@ -658,6 +697,7 @@ def roundtrip_check(
             recon = _reconstruct_using_tokens(transformed, token_map)
         except Exception as e:
             ok_all = False
+            # fornire contesto diagnostico utile
             details.append(f"Errore ricostruzione per {path}: {e}")
             continue
 
@@ -666,7 +706,12 @@ def roundtrip_check(
             ok_all = False
             residual_files += 1
             details.append(f"Placeholder non risolti in {path}: {len(residuals)}")
-            details.extend(sorted(list(residuals))[:10])
+            # limitare l'elenco e segnalare troncamento
+            RES_MAX = 10
+            sorted_res = sorted(list(residuals))
+            details.extend(sorted_res[:RES_MAX])
+            if len(sorted_res) > RES_MAX:
+                details.append(f"... (elencati {RES_MAX} di {len(sorted_res)})")
 
     # riepilogo
     if ok_all:
@@ -674,8 +719,11 @@ def roundtrip_check(
     else:
         details.insert(0, f"Roundtrip (lossy) FAILED")
 
-    return ok_all, details
+    # se c'era un errore nella costruzione del token_map, lo ripetiamo in coda per visibilità
+    if token_map_error:
+        details.append(f"Nota: token_map build error: {token_map_error}")
 
+    return ok_all, details
 
 # -------------------------
 # Manifest
