@@ -5,6 +5,9 @@
 # Compressore locale LLM‑ready  
 Compressione reversibile per testo, ottimizzata per LLM (placeholder + manifest + chunking + roundtrip verificabile)
 
+> [!IMPORTANT]  
+> Questo programma opera in modalità ***lossy*** per impostazione predefinita: i file compressi non sono destinati alla ricostruzione locale, ma all’uso diretto in un LLM, dove la riduzione dei token ha priorità sulla fedeltà byte‑per‑byte.
+
 ---
 
 ## 1. Clona il progetto
